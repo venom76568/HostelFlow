@@ -49,6 +49,8 @@ async def list_leaves(
         
     cursor = db["leaves"].find(query).sort("created_at", -1)
     leaves = await cursor.to_list(length=100)
+    for leave in leaves:
+        leave["_id"] = str(leave["_id"])
     
     if token_data.get("role") == "Admin":
          for leave in leaves:

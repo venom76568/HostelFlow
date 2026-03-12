@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, ShieldAlert, Users, Power, KeyRound, X } from "lucide-react";
+import { Building2, ShieldAlert, Power, KeyRound, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
@@ -60,7 +60,6 @@ export default function SuperAdminDashboard() {
   // Metrics
   const activeColleges = tenants.filter(t => t.is_active).length;
   const pendingApprovals = tenants.filter(t => !t.is_approved).length;
-  const globalStudentCount = 1245; // Placeholder
 
   const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } };
@@ -83,7 +82,7 @@ export default function SuperAdminDashboard() {
       <main className="max-w-7xl mx-auto p-6 space-y-8 mt-4">
         
         {/* Metric Cards */}
-        <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-white/5 p-6 rounded-xl relative overflow-hidden group hover:border-blue-500/30 transition-all">
                 <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"/>
                 <h3 className="text-slate-400 text-sm font-medium uppercase tracking-widest">Active Colleges</h3>
@@ -98,14 +97,6 @@ export default function SuperAdminDashboard() {
                 <div className="mt-2 flex items-center gap-4">
                     <KeyRound className={`w-8 h-8 ${pendingApprovals > 0 ? 'text-red-500' : 'text-slate-500'}`} />
                     <span className="text-4xl font-bold font-mono text-white">{pendingApprovals}</span>
-                </div>
-            </motion.div>
-            <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-white/5 p-6 rounded-xl relative overflow-hidden group hover:border-purple-500/30 transition-all">
-                <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"/>
-                <h3 className="text-slate-400 text-sm font-medium uppercase tracking-widest">Global Users</h3>
-                <div className="mt-2 flex items-center gap-4">
-                    <Users className="w-8 h-8 text-purple-400" />
-                    <span className="text-4xl font-bold font-mono text-white">{globalStudentCount}</span>
                 </div>
             </motion.div>
         </motion.div>

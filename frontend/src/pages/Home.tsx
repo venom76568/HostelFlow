@@ -167,7 +167,7 @@ export default function Home() {
                         /{assignedSlug}/admin
                     </div>
                     
-                    <Button variant="outline" className="border-white/20 text-slate-300 hover:text-white" onClick={() => navigate('/')}>
+                    <Button variant="outline" className="border-white/20 text-slate-300 hover:text-white" onClick={() => navigate('/login')}>
                         Return to Home
                     </Button>
                  </motion.div>

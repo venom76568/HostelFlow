@@ -12,18 +12,27 @@ import toast from "react-hot-toast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
-type Meal = { id: string; date: string; breakfast: string; lunch: string; dinner: string; };
+type Meal = { id: string; date: string; breakfast: string; lunch: string; dinner: string; is_edited?: boolean; };
+type Notice = { id: string; title: string; content: string; created_at: string; is_edited?: boolean; };
+type MealResponse = { meal_id: string; breakfast_status?: string; lunch_status?: string; dinner_status?: string; };
+type Complaint = { id: string; category: string; description: string; status: string; created_at: string; };
+type Leave = { id: string; start_date: string; end_date: string; reason: string; status: string; created_at: string; };
 
 export default function StudentDashboard() {
   const { slug } = useParams();
   const navigate = useNavigate();
   const [meals, setMeals] = useState<Meal[]>([]);
-  const [showAnnounce, setShowAnnounce] = useState(true);
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [myResponses, setMyResponses] = useState<Record<string, MealResponse>>({});
+  const [myComplaints, setMyComplaints] = useState<Complaint[]>([]);
+  const [myLeaves, setMyLeaves] = useState<Leave[]>([]);
   
   // Modals state
   const [isComplaintModalOpen, setComplaintModalOpen] = useState(false);
   const [isLeaveModalOpen, setLeaveModalOpen] = useState(false);
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
+  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
   const [activeMealGlow, setActiveMealGlow] = useState<string | null>(null);
 
   // Forms
@@ -36,29 +45,50 @@ export default function StudentDashboard() {
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
 
-  const fetchMeals = async () => {
+  const fetchData = async () => {
     try {
       const token = getAuthToken();
-      const res = await axios.get(`${API_URL}/meals/`, { headers: { Authorization: `Bearer ${token}` } });
-      setMeals(res.data);
+      const headers = { Authorization: `Bearer ${token}` };
+      const [mRes, nRes, rRes, cRes, lRes] = await Promise.all([
+        axios.get(`${API_URL}/meals/`, { headers }),
+        axios.get(`${API_URL}/notices/`, { headers }),
+        axios.get(`${API_URL}/meals/my-responses`, { headers }),
+        axios.get(`${API_URL}/complaints/`, { headers }),
+        axios.get(`${API_URL}/leaves/`, { headers })
+      ]);
+      setMeals(mRes.data);
+      setNotices(nRes.data);
+      setMyComplaints(cRes.data);
+      setMyLeaves(lRes.data);
+      
+      const respMap: Record<string, MealResponse> = {};
+      rRes.data.forEach((r: MealResponse) => respMap[r.meal_id] = r);
+      setMyResponses(respMap);
     } catch (err: any) {
        if (err.response?.status === 401 || err.response?.status === 403) handleLogout();
     }
   };
 
   useEffect(() => {
-    fetchMeals();
+    fetchData();
   }, []);
 
-  const handleResponse = async (mealId: string, status: "Having" | "Skipping") => {
-      setActiveMealGlow(`${mealId}-${status}`);
+  const handleResponse = async (mealId: string, mealType: "breakfast" | "lunch" | "dinner", status: "Having" | "Skipping") => {
+      setActiveMealGlow(`${mealId}-${mealType}-${status}`);
       try {
            const token = getAuthToken();
-           await axios.post(`${API_URL}/meals/${mealId}/respond`, { status }, { headers: { Authorization: `Bearer ${token}` } });
-           toast.success(`Meal marked as ${status}`);
+           await axios.post(`${API_URL}/meals/${mealId}/respond`, { meal_type: mealType, status }, { headers: { Authorization: `Bearer ${token}` } });
+           toast.success(`Marked as ${status} for ${mealType}`);
+           
+           // Optimistically update
+           setMyResponses(prev => ({
+             ...prev,
+             [mealId]: { ...prev[mealId], meal_id: mealId, [`${mealType}_status`]: status }
+           }));
+           
            setTimeout(() => setActiveMealGlow(null), 1000);
       } catch (err: any) {
-          toast.error("Failed to record response.");
+          toast.error(err.response?.data?.detail || "Failed to record response.");
           setActiveMealGlow(null);
       }
   };
@@ -78,6 +108,7 @@ export default function StudentDashboard() {
       toast.success("Complaint submitted!");
       setComplaintModalOpen(false);
       setCompDesc(""); setCompImage(null);
+      fetchData();
     } catch (err) {
       toast.error("Failed to submit complaint.");
     }
@@ -93,6 +124,7 @@ export default function StudentDashboard() {
       toast.success("Leave requested!");
       setLeaveModalOpen(false);
       setLeaveStart(""); setLeaveEnd(""); setLeaveReason("");
+      fetchData();
     } catch (err) {
       toast.error("Failed to request leave.");
     }
@@ -114,26 +146,13 @@ export default function StudentDashboard() {
 
   const handleLogout = () => {
     removeAuthToken();
-    navigate(`/${slug}/login`);
+    navigate(`/login`);
   };
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-[#f1f5f9] font-sans pb-10">
       
-      {/* Top Banner */}
-      <AnimatePresence>
-        {showAnnounce && (
-          <motion.div 
-            initial={{ y: -50, opacity: 0 }} 
-            animate={{ y: 0, opacity: 1 }} 
-            exit={{ y: -50, opacity: 0 }}
-            className="w-full bg-yellow-500/20 border-b border-yellow-500/50 p-3 flex justify-between items-center z-50 shadow-[0_0_15px_rgba(234,179,8,0.3)] backdrop-blur-md"
-          >
-            <span className="text-yellow-400 font-medium text-sm">Update: Tonight's dinner menu has been revised to Paneer Butter Masala!</span>
-            <button onClick={() => setShowAnnounce(false)} className="text-yellow-400 hover:text-yellow-300"><X className="w-4 h-4" /></button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Removed Hardcoded Top Banner */}
 
       <div className="max-w-md mx-auto p-4 space-y-6 mt-4">
         
@@ -168,64 +187,148 @@ export default function StudentDashboard() {
             </motion.div>
         </div>
 
+        {/* Notice Board */}
+        {notices.length > 0 && (
+          <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-4 shadow-[0_0_15px_rgba(168,85,247,0.1)] mb-6">
+            <h2 className="text-sm font-bold mb-3 flex items-center gap-2 text-purple-400 uppercase tracking-widest">
+              Announcements
+            </h2>
+            <div className="space-y-3">
+              {notices.map(n => (
+                <div key={n.id} className="bg-black/30 p-3 rounded-lg border border-white/5 relative">
+                  <h3 className="font-bold text-sm text-purple-300 flex items-center gap-2">
+                      {n.title}
+                      {n.is_edited && <span className="px-1.5 py-0.5 rounded border border-purple-500/30 bg-purple-500/10 text-purple-300 text-[9px] uppercase tracking-widest leading-none">Edited</span>}
+                  </h3>
+                  <p className="text-xs text-slate-300 mt-1 whitespace-pre-wrap">{n.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Today's Meals */}
         <div>
-           <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-orange-400"><UtensilsCrossed className="w-5 h-5"/> Today's Meals</h2>
+           <h2 className="text-lg font-bold mb-3 flex items-center gap-2 text-orange-400"><UtensilsCrossed className="w-5 h-5"/>Meals</h2>
            {meals.length === 0 && <div className="text-slate-500 italic p-4 text-center">No meals found for today.</div>}
            {meals.slice(0,1).map((meal) => (
              <Card key={meal.id} className="bg-slate-800/20 backdrop-blur-xl border border-white/10 shadow-xl overflow-hidden">
-                <div className="p-4 border-b border-white/5 bg-slate-800/40 font-mono text-center text-slate-300">
+                <div className="p-4 border-b border-white/5 bg-slate-800/40 font-mono text-center text-slate-300 flex items-center justify-center gap-2">
                     {meal.date}
+                    {meal.is_edited && <span className="px-1.5 py-0.5 rounded border border-orange-500/30 bg-orange-500/10 text-orange-400 text-[9px] uppercase tracking-widest font-sans leading-none">Edited</span>}
                 </div>
                 <CardContent className="p-6 space-y-6">
-                    <div className="space-y-4">
-                        <div className="text-center">
-                            <span className="text-xs font-bold text-orange-400 uppercase tracking-widest">Breakfast</span>
-                            <div className="text-lg font-medium">{meal.breakfast}</div>
-                        </div>
-                        <div className="text-center">
-                            <span className="text-xs font-bold text-blue-400 uppercase tracking-widest">Lunch</span>
-                            <div className="text-lg font-medium">{meal.lunch}</div>
-                        </div>
-                        <div className="text-center">
-                            <span className="text-xs font-bold text-purple-400 uppercase tracking-widest">Dinner</span>
-                            <div className="text-lg font-medium">{meal.dinner}</div>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4 mt-6">
-                        <motion.button 
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => handleResponse(meal.id, "Having")}
-                            className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${activeMealGlow === `${meal.id}-Having` ? 'bg-green-500/20 border-green-400 shadow-[0_0_30px_rgba(34,197,94,0.6)]' : 'border-green-500/30 hover:bg-green-500/10 text-green-400'}`}
-                        >
-                            <Check className="w-8 h-8 mb-1" />
-                            <span className="font-bold tracking-widest">HAVING</span>
-                        </motion.button>
-                        <motion.button 
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => handleResponse(meal.id, "Skipping")}
-                            className={`flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all ${activeMealGlow === `${meal.id}-Skipping` ? 'bg-red-500/20 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.6)]' : 'border-red-500/30 hover:bg-red-500/10 text-red-500'}`}
-                        >
-                            <X className="w-8 h-8 mb-1" />
-                            <span className="font-bold tracking-widest">SKIPPING</span>
-                        </motion.button>
+                    <div className="space-y-6">
+                        {(['breakfast', 'lunch', 'dinner'] as const).map(type => {
+                            const val = meal[type];
+                            const curStatus = myResponses[meal.id]?.[`${type}_status` as keyof MealResponse];
+                            
+                            return (
+                                <div key={type} className="bg-black/20 p-4 rounded-xl border border-white/5 space-y-3">
+                                    <div className="text-center">
+                                        <span className={`text-xs font-bold uppercase tracking-widest ${
+                                            type === 'breakfast' ? 'text-orange-400' :
+                                            type === 'lunch' ? 'text-blue-400' : 'text-purple-400'
+                                        }`}>{type}</span>
+                                        <div className="text-lg font-medium text-white mt-1">{val}</div>
+                                    </div>
+                                    
+                                    {curStatus ? (
+                                        <div className={`text-center text-xs font-bold p-2 rounded border ${
+                                            curStatus === 'Having' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 
+                                            'bg-red-500/10 text-red-500 border-red-500/30'
+                                        }`}>
+                                            ALREADY VOTED: {curStatus.toUpperCase()}
+                                        </div>
+                                    ) : (
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <motion.button 
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => handleResponse(meal.id, type, "Having")}
+                                                className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${activeMealGlow === `${meal.id}-${type}-Having` ? 'bg-green-500/20 border-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'border-green-500/30 hover:bg-green-500/10 text-green-400'}`}
+                                            >
+                                                <Check className="w-4 h-4" /> <span className="text-xs font-bold">HAVING</span>
+                                            </motion.button>
+                                            <motion.button 
+                                                whileTap={{ scale: 0.95 }}
+                                                onClick={() => handleResponse(meal.id, type, "Skipping")}
+                                                className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${activeMealGlow === `${meal.id}-${type}-Skipping` ? 'bg-red-500/20 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'border-red-500/30 hover:bg-red-500/10 text-red-500'}`}
+                                            >
+                                                <X className="w-4 h-4" /> <span className="text-xs font-bold">SKIPPING</span>
+                                            </motion.button>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
                     </div>
                 </CardContent>
              </Card>
            ))}
         </div>
+
+        {/* Dashboard Tracking */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mt-8">
+            {/* Complaints Tracker */}
+            <div className="bg-[#1e293b]/50 backdrop-blur-xl border border-white/10 p-4 rounded-xl shadow-xl">
+                <h3 className="text-sm font-bold flex items-center gap-2 text-blue-400 mb-4 tracking-widest uppercase border-b border-white/10 pb-2">
+                    <AlertTriangle className="w-4 h-4"/> My Tickets
+                </h3>
+                <div className="space-y-3">
+                    {myComplaints.length === 0 && <div className="text-xs text-slate-500 italic">No tickets filed.</div>}
+                    {myComplaints.map(c => (
+                        <div key={c.id} onClick={() => setSelectedComplaint(c)} className="bg-black/30 p-3 rounded-lg border border-white/5 flex justify-between items-start cursor-pointer hover:border-blue-500/50 hover:bg-white/5 transition-all">
+                            <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{new Date(c.created_at).toLocaleDateString()}</span>
+                                <div className="text-sm font-bold text-slate-200 mt-1">{c.category}</div>
+                                <div className="text-xs text-slate-400 line-clamp-1">{c.description}</div>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
+                                c.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' :
+                                c.status === 'In_Progress' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
+                                'bg-green-500/10 text-green-400 border-green-500/30'
+                            }`}>{c.status.replace("_", " ")}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Leaves Tracker */}
+            <div className="bg-[#1e293b]/50 backdrop-blur-xl border border-white/10 p-4 rounded-xl shadow-xl">
+                <h3 className="text-sm font-bold flex items-center gap-2 text-green-400 mb-4 tracking-widest uppercase border-b border-white/10 pb-2">
+                    <CalendarRange className="w-4 h-4"/> My Leaves
+                </h3>
+                <div className="space-y-3">
+                    {myLeaves.length === 0 && <div className="text-xs text-slate-500 italic">No leaves requested.</div>}
+                    {myLeaves.map(l => (
+                        <div key={l.id} onClick={() => setSelectedLeave(l)} className="bg-black/30 p-3 rounded-lg border border-white/5 flex justify-between items-start cursor-pointer hover:border-green-500/50 hover:bg-white/5 transition-all">
+                            <div>
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    {l.start_date} - {l.end_date}
+                                </span>
+                                <div className="text-xs text-slate-300 line-clamp-2 mt-1">{l.reason}</div>
+                            </div>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
+                                l.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' :
+                                l.status === 'Rejected' ? 'bg-red-500/10 text-red-500 border-red-500/30' :
+                                'bg-green-500/10 text-green-400 border-green-500/30'
+                            }`}>{l.status}</span>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
       </div>
 
       {/* Modals via Framer Motion */}
       <AnimatePresence>
-        {(isComplaintModalOpen || isLeaveModalOpen || isPasswordModalOpen) && (
+        {(isComplaintModalOpen || isLeaveModalOpen || isPasswordModalOpen || selectedComplaint || selectedLeave) && (
             <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
                 <motion.div 
                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
                    animate={{ opacity: 1, scale: 1, y: 0 }}
                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                   className="w-full max-w-md bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+                   className="w-full max-w-md bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
                 >
                     {isComplaintModalOpen && (
                         <div className="p-6">
@@ -304,6 +407,56 @@ export default function StudentDashboard() {
                                     Update Password
                                 </motion.button>
                             </form>
+                        </div>
+                    )}
+                    {selectedComplaint && (
+                        <div className="p-6">
+                             <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                                <h3 className="text-xl font-bold flex items-center gap-2 text-blue-400"><AlertTriangle className="w-5 h-5"/> Ticket Status</h3>
+                                <button onClick={() => setSelectedComplaint(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+                            </div>
+                            <div className="space-y-4">
+                                <div><Label className="text-slate-400 text-xs uppercase tracking-widest">Category</Label><p className="font-bold text-lg text-slate-200">{selectedComplaint.category}</p></div>
+                                <div><Label className="text-slate-400 text-xs uppercase tracking-widest">Date Filed</Label><p className="font-mono text-slate-300 text-sm">{new Date(selectedComplaint.created_at).toLocaleString()}</p></div>
+                                <div>
+                                    <Label className="text-slate-400 text-xs uppercase tracking-widest">Description</Label>
+                                    <div className="bg-black/20 p-3 rounded-lg border border-white/5 mt-1 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedComplaint.description}</div>
+                                </div>
+                                <div>
+                                    <Label className="text-slate-400 text-xs uppercase tracking-widest block mb-1">Current Status</Label>
+                                    <span className={`text-xs font-bold px-3 py-1 rounded border inline-block ${
+                                        selectedComplaint.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' :
+                                        selectedComplaint.status === 'In_Progress' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
+                                        'bg-green-500/10 text-green-400 border-green-500/30'
+                                    }`}>{selectedComplaint.status.replace("_", " ")}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {selectedLeave && (
+                        <div className="p-6">
+                             <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                                <h3 className="text-xl font-bold flex items-center gap-2 text-green-400"><CalendarRange className="w-5 h-5"/> Leave Request</h3>
+                                <button onClick={() => setSelectedLeave(null)} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+                            </div>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div><Label className="text-slate-400 text-xs uppercase tracking-widest">Start</Label><p className="font-mono text-slate-200 text-sm mt-1">{selectedLeave.start_date}</p></div>
+                                    <div><Label className="text-slate-400 text-xs uppercase tracking-widest">End</Label><p className="font-mono text-slate-200 text-sm mt-1">{selectedLeave.end_date}</p></div>
+                                </div>
+                                <div>
+                                    <Label className="text-slate-400 text-xs uppercase tracking-widest">Justification / Reason</Label>
+                                    <div className="bg-black/20 p-3 rounded-lg border border-white/5 mt-1 text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{selectedLeave.reason}</div>
+                                </div>
+                                <div>
+                                    <Label className="text-slate-400 text-xs uppercase tracking-widest block mb-1">Decision</Label>
+                                    <span className={`text-xs font-bold px-3 py-1 rounded border inline-block ${
+                                        selectedLeave.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' :
+                                        selectedLeave.status === 'Rejected' ? 'bg-red-500/10 text-red-500 border-red-500/30' :
+                                        'bg-green-500/10 text-green-400 border-green-500/30'
+                                    }`}>{selectedLeave.status}</span>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </motion.div>

@@ -17,6 +17,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 type Meal = { id: string; date: string; breakfast: string; lunch: string; dinner: string; };
 type Complaint = { id: string; student_name: string; category: string; description: string; status: string; image_url: string; created_at: string; };
 type Leave = { id: string; student_name: string; start_date: string; end_date: string; reason: string; status: string; created_at: string; };
+type Notice = { id: string; title: string; content: string; created_at: string; };
 
 export default function AdminDashboard() {
   const { slug } = useParams();
@@ -26,6 +27,7 @@ export default function AdminDashboard() {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
+  const [notices, setNotices] = useState<Notice[]>([]);
 
   // Drawer State
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
@@ -41,16 +43,32 @@ export default function AdminDashboard() {
   const [lunch, setLunch] = useState("");
   const [dinner, setDinner] = useState("");
 
+  // New Notice Form
+  const [noticeTitle, setNoticeTitle] = useState("");
+  const [noticeContent, setNoticeContent] = useState("");
+
+  // Edit States
+  const [editingNoticeId, setEditingNoticeId] = useState<string | null>(null);
+  const [editNoticeTitle, setEditNoticeTitle] = useState("");
+  const [editNoticeContent, setEditNoticeContent] = useState("");
+
+  const [editingMealId, setEditingMealId] = useState<string | null>(null);
+  const [editMealDate, setEditMealDate] = useState("");
+  const [editBreakfast, setEditBreakfast] = useState("");
+  const [editLunch, setEditLunch] = useState("");
+  const [editDinner, setEditDinner] = useState("");
+
   const fetchData = async () => {
     try {
       const token = getAuthToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const [m, c, l] = await Promise.all([
+      const [m, c, l, n] = await Promise.all([
         axios.get(`${API_URL}/meals/`, { headers }),
         axios.get(`${API_URL}/complaints/`, { headers }),
-        axios.get(`${API_URL}/leaves/`, { headers })
+        axios.get(`${API_URL}/leaves/`, { headers }),
+        axios.get(`${API_URL}/notices/`, { headers })
       ]);
-      setMeals(m.data); setComplaints(c.data); setLeaves(l.data);
+      setMeals(m.data); setComplaints(c.data); setLeaves(l.data); setNotices(n.data);
     } catch (err: any) {
       if (err.response?.status === 401 || err.response?.status === 403) handleLogout();
     }
@@ -85,6 +103,53 @@ export default function AdminDashboard() {
     } catch (err: any) { toast.error(err.response?.data?.detail || "Failed to create menu"); }
   };
 
+  const handleCreateNotice = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await axios.post(`${API_URL}/notices/`, { title: noticeTitle, content: noticeContent }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+      toast.success("Notice posted");
+      setNoticeTitle(""); setNoticeContent("");
+      fetchData();
+    } catch (err: any) { toast.error(err.response?.data?.detail || "Failed to post notice"); }
+  };
+
+  const handleEditNotice = async (id: string, e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${API_URL}/notices/${id}`, { title: editNoticeTitle, content: editNoticeContent }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+      toast.success("Notice updated");
+      setEditingNoticeId(null);
+      fetchData();
+    } catch (error) { toast.error("Failed to update notice"); }
+  };
+
+  const handleDeleteNotice = async (id: string) => {
+    try {
+      await axios.delete(`${API_URL}/notices/${id}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+      toast.success("Notice deleted");
+      fetchData();
+    } catch (err: any) { toast.error("Failed to delete notice"); }
+  };
+
+  const handleEditMeal = async (id: string, e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${API_URL}/meals/${id}`, { date: editMealDate, breakfast: editBreakfast, lunch: editLunch, dinner: editDinner }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+      toast.success("Menu updated");
+      setEditingMealId(null);
+      fetchData();
+    } catch (error) { toast.error("Failed to update menu"); }
+  };
+
+  const handleDeleteMeal = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this menu? All responses for this meal will also be deleted.")) return;
+    try {
+      await axios.delete(`${API_URL}/meals/${id}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+      toast.success("Menu deleted");
+      fetchData();
+    } catch (error) { toast.error("Failed to delete menu"); }
+  };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -111,12 +176,11 @@ export default function AdminDashboard() {
     } catch (err) { toast.error("Export failed"); }
   };
 
-  const handleLogout = () => { removeAuthToken(); navigate(`/${slug}/login`); };
+  const handleLogout = () => { removeAuthToken(); navigate(`/login`); };
 
   // Metrics
   const openComplaints = complaints.filter(c => c.status !== "Resolved").length;
   const pendingLeaves = leaves.filter(l => l.status === "Pending").length;
-  const todayFoodCount = 145; // Placeholder for UI
 
   const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } };
@@ -160,8 +224,8 @@ export default function AdminDashboard() {
                <button onClick={handleLogout} className="text-red-400 border border-red-500/30 px-3 py-1 rounded text-sm">Logout</button>
             </header>
 
-            {/* Metric Cards - Staggered */}
-            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Metric Cards */}
+            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-yellow-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-yellow-500/50 transition-all">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/20 transition-all"/>
                   <h3 className="text-slate-400 text-sm font-medium">Open Complaints</h3>
@@ -176,14 +240,6 @@ export default function AdminDashboard() {
                   <div className="mt-2 flex items-center gap-4">
                      <CalendarRange className="w-8 h-8 text-blue-400" />
                      <span className="text-4xl font-bold font-mono text-white">{pendingLeaves}</span>
-                  </div>
-               </motion.div>
-               <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-orange-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-orange-500/50 transition-all">
-                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-500/10 rounded-full blur-2xl group-hover:bg-orange-500/20 transition-all"/>
-                  <h3 className="text-slate-400 text-sm font-medium">Today's Food Count</h3>
-                  <div className="mt-2 flex items-center gap-4">
-                     <Users className="w-8 h-8 text-orange-400" />
-                     <span className="text-4xl font-bold font-mono text-white">{todayFoodCount}</span>
                   </div>
                </motion.div>
             </motion.div>
@@ -271,6 +327,44 @@ export default function AdminDashboard() {
 
                 {/* Mess Manager Sidebar */}
                 <div className="space-y-6">
+                    {/* Notice Board */}
+                    <div className="bg-[#1e293b]/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 shadow-2xl">
+                        <h2 className="text-lg font-bold flex items-center gap-2 mb-6 text-purple-400">Notices Manager</h2>
+                        <form onSubmit={handleCreateNotice} className="space-y-4 mb-6 pb-6 border-b border-white/10">
+                            <div><Label className="text-xs text-slate-400">Title</Label><Input value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)} className="bg-slate-900 border-white/10" required /></div>
+                            <div><Label className="text-xs text-slate-400">Content</Label><textarea value={noticeContent} onChange={e => setNoticeContent(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded min-h-[80px]" required /></div>
+                            <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]">Post Notice</Button>
+                        </form>
+                        <div className="space-y-4">
+                            <h3 className="text-sm font-bold text-slate-300">Recent Notices</h3>
+                            {notices.map(n => (
+                                <div key={n.id} className="p-3 bg-black/30 rounded-lg border border-white/5 space-y-2 relative group">
+                                    {editingNoticeId === n.id ? (
+                                        <form onSubmit={(e) => handleEditNotice(n.id, e)} className="space-y-3 mt-2 mb-2 p-2 border border-purple-500/30 rounded bg-black/40">
+                                            <Input value={editNoticeTitle} onChange={e => setEditNoticeTitle(e.target.value)} className="bg-slate-900 border-white/10 h-8 text-sm" required placeholder="Title" />
+                                            <textarea value={editNoticeContent} onChange={e => setEditNoticeContent(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 text-sm rounded min-h-[60px]" required placeholder="Content" />
+                                            <div className="flex gap-2">
+                                                <Button type="button" onClick={() => setEditingNoticeId(null)} className="h-7 text-xs flex-1 bg-slate-800 hover:bg-slate-700">Cancel</Button>
+                                                <Button type="submit" className="h-7 text-xs flex-1 bg-purple-600 hover:bg-purple-500">Save</Button>
+                                            </div>
+                                        </form>
+                                    ) : (
+                                        <>
+                                            <div className="flex justify-between items-start">
+                                                <div className="font-bold text-sm text-purple-300 pr-12">{n.title}</div>
+                                                <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-3 right-3 flex gap-2">
+                                                    <button onClick={() => { setEditingNoticeId(n.id); setEditNoticeTitle(n.title); setEditNoticeContent(n.content); }} className="text-blue-400 hover:text-blue-300 text-xs underline">Edit</button>
+                                                    <button onClick={() => handleDeleteNotice(n.id)} className="text-red-400 hover:text-red-300"><X className="w-4 h-4"/></button>
+                                                </div>
+                                            </div>
+                                            <div className="text-xs text-slate-300 line-clamp-2">{n.content}</div>
+                                        </>
+                                    )}
+                                </div>
+                            ))}
+                            {notices.length === 0 && <div className="text-xs text-slate-500">No notices posted.</div>}
+                        </div>
+                    </div>
                     <div className="bg-[#1e293b]/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 shadow-2xl">
                         <h2 className="text-lg font-bold flex items-center gap-2 mb-6"><UtensilsCrossed className="text-orange-400 w-5 h-5"/> Mess Manager</h2>
                         <form onSubmit={handleCreateMeal} className="space-y-4 mb-6 pb-6 border-b border-white/10">
@@ -284,15 +378,35 @@ export default function AdminDashboard() {
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-slate-300">Scheduled Meals</h3>
                             {meals.map(m => (
-                                <div key={m.id} className="p-3 bg-black/30 rounded-lg border border-white/5 space-y-2">
-                                    <div className="font-mono text-xs text-blue-400 flex justify-between">
-                                        {m.date}
-                                        <button onClick={() => handleExport(m.id)} className="text-neon-green text-[10px] flex items-center gap-1 border border-green-400 text-green-400 px-2 py-0.5 rounded shadow-[0_0_5px_rgba(34,197,94,0.5)] hover:bg-green-400 hover:text-black transition-all">
-                                            <Download className="w-3 h-3"/> EXPORT LIST
-                                        </button>
-                                    </div>
-                                    <div className="text-xs text-slate-300">🌞 {m.breakfast}</div>
-                                    <div className="text-xs text-slate-300">🍛 {m.lunch}</div>
+                                <div key={m.id} className="p-3 bg-black/30 rounded-lg border border-white/5 space-y-2 relative group">
+                                    {editingMealId === m.id ? (
+                                        <form onSubmit={(e) => handleEditMeal(m.id, e)} className="space-y-3 mt-2 mb-2 p-2 border border-orange-500/30 rounded bg-black/40">
+                                             <Input type="date" value={editMealDate} onChange={e => setEditMealDate(e.target.value)} className="bg-slate-900 border-white/10 h-8 text-sm" required />
+                                             <Input value={editBreakfast} onChange={e => setEditBreakfast(e.target.value)} className="bg-slate-900 border-white/10 h-8 text-sm" required placeholder="Breakfast" />
+                                             <Input value={editLunch} onChange={e => setEditLunch(e.target.value)} className="bg-slate-900 border-white/10 h-8 text-sm" required placeholder="Lunch" />
+                                             <Input value={editDinner} onChange={e => setEditDinner(e.target.value)} className="bg-slate-900 border-white/10 h-8 text-sm" required placeholder="Dinner" />
+                                             <div className="flex gap-2">
+                                                <Button type="button" onClick={() => setEditingMealId(null)} className="h-7 text-xs flex-1 bg-slate-800 hover:bg-slate-700">Cancel</Button>
+                                                <Button type="submit" className="h-7 text-xs flex-1 bg-orange-600 hover:bg-orange-500">Save</Button>
+                                             </div>
+                                        </form>
+                                    ) : (
+                                        <>
+                                            <div className="font-mono text-xs text-blue-400 flex justify-between items-center pr-12">
+                                                {m.date}
+                                                <button onClick={() => handleExport(m.id)} className="text-neon-green text-[10px] flex items-center gap-1 border border-green-400 text-green-400 px-2 py-0.5 rounded shadow-[0_0_5px_rgba(34,197,94,0.5)] hover:bg-green-400 hover:text-black transition-all">
+                                                    <Download className="w-3 h-3"/> EXPORT
+                                                </button>
+                                            </div>
+                                            <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex gap-2">
+                                                <button onClick={() => { setEditingMealId(m.id); setEditMealDate(m.date); setEditBreakfast(m.breakfast); setEditLunch(m.lunch); setEditDinner(m.dinner); }} className="text-blue-400 hover:text-blue-300 text-xs underline">Edit</button>
+                                                <button onClick={() => handleDeleteMeal(m.id)} className="text-red-400 hover:text-red-300"><X className="w-4 h-4"/></button>
+                                            </div>
+                                            <div className="text-xs text-slate-300">🌞 {m.breakfast}</div>
+                                            <div className="text-xs text-slate-300">🍛 {m.lunch}</div>
+                                            <div className="text-xs text-slate-300">🌙 {m.dinner}</div>
+                                        </>
+                                    )}
                                 </div>
                             ))}
                         </div>

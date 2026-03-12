@@ -13,6 +13,7 @@ class MealDB(BaseModel):
     breakfast: str
     lunch: str
     dinner: str
+    is_edited: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class MealResponseDB(BaseModel):
@@ -20,5 +21,7 @@ class MealResponseDB(BaseModel):
     meal_id: str
     tenant_id: str
     user_id: str
-    status: str # "Having" or "Skipping"
+    breakfast_status: Optional[str] = None # "Having" or "Skipping"
+    lunch_status: Optional[str] = None
+    dinner_status: Optional[str] = None
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

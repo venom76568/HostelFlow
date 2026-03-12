@@ -62,6 +62,8 @@ async def list_complaints(
         
     cursor = db["complaints"].find(query).sort("created_at", -1)
     complaints = await cursor.to_list(length=100)
+    for comp in complaints:
+        comp["_id"] = str(comp["_id"])
     
     # Enhance with student info if admin
     if token_data.get("role") == "Admin":
