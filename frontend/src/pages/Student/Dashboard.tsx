@@ -19,7 +19,7 @@ type Complaint = { id: string; category: string; description: string; status: st
 type Leave = { id: string; start_date: string; end_date: string; reason: string; status: string; created_at: string; };
 
 export default function StudentDashboard() {
-  const { slug } = useParams();
+  //const { slug } = useParams();
   const navigate = useNavigate();
   const [meals, setMeals] = useState<Meal[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);

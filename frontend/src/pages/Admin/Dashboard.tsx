@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
-  LayoutDashboard, Users, AlertTriangle, CalendarRange, 
+  LayoutDashboard, AlertTriangle, CalendarRange, 
   UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
