@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { /* useParams, */ useNavigate } from "react-router-dom";
 import { removeAuthToken, getAuthToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -109,7 +109,7 @@ export default function StudentDashboard() {
       setComplaintModalOpen(false);
       setCompDesc(""); setCompImage(null);
       fetchData();
-    } catch (err) {
+    } catch {
       toast.error("Failed to submit complaint.");
     }
   };
@@ -125,7 +125,7 @@ export default function StudentDashboard() {
       setLeaveModalOpen(false);
       setLeaveStart(""); setLeaveEnd(""); setLeaveReason("");
       fetchData();
-    } catch (err) {
+    } catch {
       toast.error("Failed to request leave.");
     }
   };

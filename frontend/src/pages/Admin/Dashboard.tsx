@@ -120,7 +120,7 @@ export default function AdminDashboard() {
       toast.success("Notice updated");
       setEditingNoticeId(null);
       fetchData();
-    } catch (error) { toast.error("Failed to update notice"); }
+    } catch { toast.error("Failed to update notice"); }
   };
 
   const handleDeleteNotice = async (id: string) => {
@@ -128,7 +128,7 @@ export default function AdminDashboard() {
       await axios.delete(`${API_URL}/notices/${id}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success("Notice deleted");
       fetchData();
-    } catch (err: any) { toast.error("Failed to delete notice"); }
+    } catch { toast.error("Failed to delete notice"); }
   };
 
   const handleEditMeal = async (id: string, e: React.FormEvent) => {
@@ -138,7 +138,7 @@ export default function AdminDashboard() {
       toast.success("Menu updated");
       setEditingMealId(null);
       fetchData();
-    } catch (error) { toast.error("Failed to update menu"); }
+    } catch { toast.error("Failed to update menu"); }
   };
 
   const handleDeleteMeal = async (id: string) => {
@@ -147,7 +147,7 @@ export default function AdminDashboard() {
       await axios.delete(`${API_URL}/meals/${id}`, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success("Menu deleted");
       fetchData();
-    } catch (error) { toast.error("Failed to delete menu"); }
+    } catch { toast.error("Failed to delete menu"); }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
@@ -173,7 +173,7 @@ export default function AdminDashboard() {
       link.href = url; link.setAttribute('download', `meal_${mealId}_responses.csv`);
       document.body.appendChild(link); link.click(); link.remove();
       toast.success("Export downloaded");
-    } catch (err) { toast.error("Export failed"); }
+    } catch { toast.error("Export failed"); }
   };
 
   const handleLogout = () => { removeAuthToken(); navigate(`/login`); };

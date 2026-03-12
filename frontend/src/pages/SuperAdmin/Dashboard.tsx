@@ -33,7 +33,7 @@ export default function SuperAdminDashboard() {
         const token = localStorage.getItem("super_token");
         const res = await axios.get(`${API_URL}/partners/`, { headers: { Authorization: `Bearer ${token}` } });
         setTenants(res.data);
-    } catch (error) { toast.error("Failed to fetch tenants"); }
+    } catch { toast.error("Failed to fetch tenants"); }
   };
 
   const approveTenant = async (id: string) => {
@@ -43,7 +43,7 @@ export default function SuperAdminDashboard() {
         toast.success("College approved and Code generated!");
         setSelectedPending(null);
         fetchTenants();
-    } catch (error) { toast.error("Failed to approve"); }
+    } catch { toast.error("Failed to approve"); }
   };
 
   const toggleActive = async (id: string, currentStatus: boolean) => {
@@ -52,7 +52,7 @@ export default function SuperAdminDashboard() {
         await axios.post(`${API_URL}/partners/${id}/toggle-active`, {}, { headers: { Authorization: `Bearer ${token}` } });
         toast.success(`College ${currentStatus ? 'Deactivated' : 'Activated'}`);
         fetchTenants();
-    } catch (error) { toast.error("Failed to toggle status"); }
+    } catch { toast.error("Failed to toggle status"); }
   };
 
   const handleLogout = () => { localStorage.removeItem("super_token"); navigate("/super-panel/login"); };

@@ -20,7 +20,7 @@ export const parseJwt = (token: string): TokenPayload | null => {
     }).join(''));
 
     return JSON.parse(jsonPayload);
-  } catch (e) {
+  } catch {
     return null;
   }
 };
