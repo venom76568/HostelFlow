@@ -13,6 +13,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 export default function Home() {
   const navigate = useNavigate();
   const [isApplying, setIsApplying] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [assignedSlug, setAssignedSlug] = useState("");
 
@@ -23,6 +24,9 @@ export default function Home() {
 
   const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
     try {
       const resp = await axios.post(`${API_URL}/partners/apply`, {
         name,
@@ -34,6 +38,8 @@ export default function Home() {
       toast.success("Application submitted successfully!");
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Failed to submit application");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -134,9 +140,12 @@ export default function Home() {
                         <motion.button 
                             whileTap={{ scale: 0.98 }} 
                             type="submit" 
-                            className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-[0_0_20px_rgba(59,130,246,0.3)] mt-4 transition-all"
+                            disabled={isSubmitting}
+                            className={`w-full py-4 text-white font-bold rounded-xl mt-4 transition-all ${
+                                isSubmitting ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.3)]"
+                            }`}
                         >
-                            Submit Application
+                            {isSubmitting ? "Processing..." : "Submit Application"}
                         </motion.button>
                     </form>
                 </motion.div>

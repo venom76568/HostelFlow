@@ -13,10 +13,14 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 export default function StudentLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+
+    setIsLoading(true);
     try {
         const formData = new FormData();
         formData.append("username", email);
@@ -34,6 +38,8 @@ export default function StudentLogin() {
         navigate(`/${slug}/dashboard`);
     } catch (err: any) {
         toast.error(err.response?.data?.detail || "Invalid credentials");
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -74,7 +80,9 @@ export default function StudentLogin() {
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-4">
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white">Login</Button>
+              <Button type="submit" disabled={isLoading} className="w-full bg-purple-600 hover:bg-purple-500 text-white">
+                {isLoading ? "Authenticating..." : "Login"}
+              </Button>
               <div className="text-sm text-slate-500 text-center">
                   Don't have an account? <span className="text-purple-400 cursor-pointer hover:underline" onClick={() => navigate('/student-register')}>Register here</span>
               </div>

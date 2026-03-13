@@ -61,10 +61,23 @@ async def list_complaints(
         query["student_id"] = token_data.get("uid")
         
     cursor = db["complaints"].find(query).sort("created_at", -1)
-    complaints = await cursor.to_list(length=100)
-    for comp in complaints:
-        comp["_id"] = str(comp["_id"])
+    raw_complaints = await cursor.to_list(length=1000)
     
+    current_time = datetime.now(timezone.utc)
+    complaints = []
+    for comp in raw_complaints:
+        # Filter out Resolved complaints older than 14 days
+        if comp.get("status") == "Resolved":
+            last_updated = comp.get("updated_at") or comp.get("created_at")
+            if last_updated:
+                if last_updated.tzinfo is None:
+                    last_updated = last_updated.replace(tzinfo=timezone.utc)
+                if (current_time - last_updated).days > 14:
+                    continue
+                    
+        comp["_id"] = str(comp["_id"])
+        complaints.append(comp)
+        
     # Enhance with student info if admin
     if token_data.get("role") == "Admin":
          for comp in complaints:
@@ -91,7 +104,10 @@ async def update_complaint_status(
 
     result = await db["complaints"].update_one(
         {"id": complaint_id, "tenant_id": tenant_id},
-        {"$set": {"status": request.status}}
+        {"$set": {
+            "status": request.status,
+            "updated_at": datetime.now(timezone.utc)
+        }}
     )
 
     if result.matched_count == 0:

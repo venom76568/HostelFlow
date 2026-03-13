@@ -157,11 +157,11 @@ async def respond_to_meal(
 
     response_doc = await db["meal_responses"].find_one({"meal_id": meal_id, "user_id": user_id, "tenant_id": tenant_id})
     if response_doc:
-         if response_doc.get(status_field):
-             raise HTTPException(status_code=400, detail="You have already voted for this meal.")
+         if response_doc.get(status_field) == request.status:
+             return {"message": f"Response is already recorded as {request.status}."}
          
          await db["meal_responses"].update_one(
-             {"id": response_doc["id"]},
+             {"_id": response_doc["_id"]},
              {"$set": {status_field: request.status, "updated_at": datetime.now(timezone.utc)}}
          )
     else:
@@ -188,6 +188,14 @@ async def export_meal_responses(
     meal = await db["meals"].find_one({"id": meal_id, "tenant_id": tenant_id})
     if not meal:
          raise HTTPException(status_code=404, detail="Meal not found.")
+         
+    meal_date = datetime.strptime(meal["date"], "%Y-%m-%d").date()
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+    current_date = datetime.now(ist).date()
+    
+    if current_date < meal_date:
+        raise HTTPException(status_code=400, detail="Cannot export responses until the explicitly voting window has closed.")
 
     responses = await db["meal_responses"].find({"meal_id": meal_id, "tenant_id": tenant_id}).to_list(length=1000)
 

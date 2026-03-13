@@ -4,9 +4,10 @@ import { removeAuthToken, getAuthToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { 
-  LayoutDashboard, AlertTriangle, CalendarRange, 
-  UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  LayoutDashboard, AlertTriangle, CalendarRange,
+  UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound, Users
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -18,6 +19,7 @@ type Meal = { id: string; date: string; breakfast: string; lunch: string; dinner
 type Complaint = { id: string; student_name: string; category: string; description: string; status: string; image_url: string; created_at: string; };
 type Leave = { id: string; student_name: string; start_date: string; end_date: string; reason: string; status: string; created_at: string; };
 type Notice = { id: string; title: string; content: string; created_at: string; };
+type Student = { id: string; full_name: string; email: string; room_number: string; contact: string; };
 
 export default function AdminDashboard() {
   const { slug } = useParams();
@@ -31,6 +33,10 @@ export default function AdminDashboard() {
 
   // Drawer State
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
+  
+  // Student Roster State
+  const [students, setStudents] = useState<Student[]>([]);
+  const [isStudentModalOpen, setStudentModalOpen] = useState(false);
   
   // Password State
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
@@ -53,10 +59,20 @@ export default function AdminDashboard() {
   const [editNoticeContent, setEditNoticeContent] = useState("");
 
   const [editingMealId, setEditingMealId] = useState<string | null>(null);
+  
+  // Idempotency state
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+
   const [editMealDate, setEditMealDate] = useState("");
   const [editBreakfast, setEditBreakfast] = useState("");
   const [editLunch, setEditLunch] = useState("");
   const [editDinner, setEditDinner] = useState("");
+
+  // Filter States
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [filterCategory, setFilterCategory] = useState("All");
+  const [filterDate, setFilterDate] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const fetchData = async () => {
     try {
@@ -76,51 +92,83 @@ export default function AdminDashboard() {
 
   useEffect(() => { fetchData(); }, []);
 
-  const handleUpdateComplaint = async (id: string, status: string) => {
+  const handleComplaintUpdate = async (id: string, newStatus: string) => {
+    if (isProcessing === `complaint_${id}`) return;
+    
+    setIsProcessing(`complaint_${id}`);
     try {
-      await axios.patch(`${API_URL}/complaints/${id}/status`, { status }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+      await axios.patch(`${API_URL}/complaints/${id}/status`, { status: newStatus }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success("Status updated");
       fetchData();
-      if (selectedComplaint?.id === id) setSelectedComplaint(prev => prev ? {...prev, status} : null);
-    } catch { toast.error("Update failed"); }
+      if (selectedComplaint?.id === id) setSelectedComplaint(prev => prev ? {...prev, status: newStatus} : null);
+    } catch { 
+      toast.error("Update failed"); 
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
-  const handleUpdateLeave = async (id: string, status: string) => {
+  const handleLeaveResponse = async (id: string, status: "Approved" | "Rejected") => {
+    if (isProcessing === `leave_${id}`) return;
+    
+    setIsProcessing(`leave_${id}`);
     try {
       await axios.patch(`${API_URL}/leaves/${id}/status`, { status }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success(`Leave ${status}`);
       fetchData();
-    } catch { toast.error("Update failed"); }
+    } catch { 
+      toast.error("Failed to update leave request"); 
+    } finally {
+      setIsProcessing(null);
+    }
   };
 
-  const handleCreateMeal = async (e: React.FormEvent) => {
+  const handleMealSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "meal_submit") return;
+
+    setIsProcessing("meal_submit");
     try {
       await axios.post(`${API_URL}/meals/`, { date, breakfast, lunch, dinner }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success("Menu created");
       setDate(""); setBreakfast(""); setLunch(""); setDinner("");
       fetchData();
     } catch (err: any) { toast.error(err.response?.data?.detail || "Failed to create menu"); }
+    finally {
+      setIsProcessing(null);
+    }
   };
 
-  const handleCreateNotice = async (e: React.FormEvent) => {
+  const handleNoticeSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "createNotice") return;
+
+    setIsProcessing("createNotice");
     try {
       await axios.post(`${API_URL}/notices/`, { title: noticeTitle, content: noticeContent }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success("Notice posted");
       setNoticeTitle(""); setNoticeContent("");
       fetchData();
     } catch (err: any) { toast.error(err.response?.data?.detail || "Failed to post notice"); }
+    finally {
+      setIsProcessing(null);
+    }
   };
 
   const handleEditNotice = async (id: string, e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "editNotice") return;
+
+    setIsProcessing("editNotice");
     try {
       await axios.put(`${API_URL}/notices/${id}`, { title: editNoticeTitle, content: editNoticeContent }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success("Notice updated");
       setEditingNoticeId(null);
       fetchData();
     } catch { toast.error("Failed to update notice"); }
+    finally {
+      setIsProcessing(null);
+    }
   };
 
   const handleDeleteNotice = async (id: string) => {
@@ -133,12 +181,19 @@ export default function AdminDashboard() {
 
   const handleEditMeal = async (id: string, e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "meal_submit") return;
+
+    setIsProcessing("meal_submit");
     try {
       await axios.put(`${API_URL}/meals/${id}`, { date: editMealDate, breakfast: editBreakfast, lunch: editLunch, dinner: editDinner }, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
       toast.success("Menu updated");
       setEditingMealId(null);
       fetchData();
-    } catch { toast.error("Failed to update menu"); }
+    } catch {
+      toast.error("Failed to save meal.");
+    } finally {
+        setIsProcessing(null);
+    }
   };
 
   const handleDeleteMeal = async (id: string) => {
@@ -152,6 +207,9 @@ export default function AdminDashboard() {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "passwordChange") return;
+
+    setIsProcessing("passwordChange");
     try {
       await axios.post(`${API_URL}/auth/change-password`, { old_password: oldPassword, new_password: newPassword }, 
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
@@ -161,6 +219,8 @@ export default function AdminDashboard() {
       setOldPassword(""); setNewPassword("");
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Failed to update password.");
+    } finally {
+      setIsProcessing(null);
     }
   };
 
@@ -173,7 +233,26 @@ export default function AdminDashboard() {
       link.href = url; link.setAttribute('download', `meal_${mealId}_responses.csv`);
       document.body.appendChild(link); link.click(); link.remove();
       toast.success("Export downloaded");
-    } catch { toast.error("Export failed"); }
+    } catch (err: any) { toast.error(err.response?.data?.detail || "Export failed"); }
+  };
+
+  const handleFetchStudents = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/users/students`, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
+      setStudents(res.data);
+      setStudentModalOpen(true);
+    } catch { toast.error("Failed to load student roster"); }
+  };
+
+  const handleExportStudents = () => {
+    const headers = ["ID", "Name", "Email", "Room", "Contact"];
+    const rows = students.map(s => [s.id, s.full_name, s.email, s.room_number || "N/A", s.contact || "N/A"]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url; link.setAttribute('download', 'students_roster.csv');
+    document.body.appendChild(link); link.click(); link.remove();
   };
 
   const handleLogout = () => { removeAuthToken(); navigate(`/login`); };
@@ -181,6 +260,15 @@ export default function AdminDashboard() {
   // Metrics
   const openComplaints = complaints.filter(c => c.status !== "Resolved").length;
   const pendingLeaves = leaves.filter(l => l.status === "Pending").length;
+
+  const filteredComplaints = complaints.filter(c => {
+    let match = true;
+    if (filterStatus !== "All" && c.status !== filterStatus) match = false;
+    if (filterCategory !== "All" && c.category !== filterCategory) match = false;
+    if (filterDate && !c.created_at.startsWith(filterDate)) match = false;
+    if (searchTerm && !c.student_name.toLowerCase().includes(searchTerm.toLowerCase()) && !c.description.toLowerCase().includes(searchTerm.toLowerCase())) match = false;
+    return match;
+  });
 
   const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } };
@@ -234,12 +322,17 @@ export default function AdminDashboard() {
                      <span className="text-4xl font-bold font-mono text-white">{openComplaints}</span>
                   </div>
                </motion.div>
-               <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-blue-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-blue-500/50 transition-all">
+               <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-blue-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-blue-500/50 transition-all flex flex-col justify-between">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-all"/>
                   <h3 className="text-slate-400 text-sm font-medium">Leaves Pending</h3>
-                  <div className="mt-2 flex items-center gap-4">
-                     <CalendarRange className="w-8 h-8 text-blue-400" />
-                     <span className="text-4xl font-bold font-mono text-white">{pendingLeaves}</span>
+                  <div className="mt-2 flex items-center justify-between">
+                     <div className="flex items-center gap-4">
+                         <CalendarRange className="w-8 h-8 text-blue-400" />
+                         <span className="text-4xl font-bold font-mono text-white">{pendingLeaves}</span>
+                     </div>
+                     <button onClick={handleFetchStudents} className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs px-3 py-2 rounded border border-blue-500/30 transition-all z-10">
+                         <Users className="w-4 h-4"/> Roster
+                     </button>
                   </div>
                </motion.div>
             </motion.div>
@@ -251,11 +344,28 @@ export default function AdminDashboard() {
                 <div className="xl:col-span-2 space-y-8">
                     {/* Complaints Table */}
                     <div className="bg-[#1e293b]/40 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                        <div className="p-4 border-b border-white/10 flex flex-col sm:flex-row justify-between sm:items-center gap-4 bg-white/5">
-                            <h2 className="font-bold flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-yellow-500"/> Complaint Hub</h2>
-                            <div className="relative self-end sm:self-auto">
-                               <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-                               <Input placeholder="Search..." className="bg-slate-900 border-white/10 pl-9 w-48 text-sm h-9"/>
+                        <div className="p-4 border-b border-white/10 flex flex-col xl:flex-row justify-between xl:items-center gap-4 bg-white/5">
+                            <h2 className="font-bold flex items-center gap-2 whitespace-nowrap"><AlertTriangle className="w-5 h-5 text-yellow-500"/> Complaint Hub</h2>
+                            <div className="flex flex-wrap gap-2 items-center">
+                               <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-slate-900 border border-white/10 text-xs p-2 rounded outline-none text-slate-300 h-8">
+                                  <option value="All">All Status</option>
+                                  <option value="Pending">Pending</option>
+                                  <option value="In_Progress">In Progress</option>
+                                  <option value="Resolved">Resolved</option>
+                               </select>
+                               <select value={filterCategory} onChange={e => setFilterCategory(e.target.value)} className="bg-slate-900 border border-white/10 text-xs p-2 rounded outline-none text-slate-300 h-8">
+                                  <option value="All">All Categories</option>
+                                  <option value="Food">Food</option>
+                                  <option value="Water">Water</option>
+                                  <option value="Electricity">Electricity</option>
+                                  <option value="Cleaning">Cleaning</option>
+                                  <option value="Other">Other</option>
+                               </select>
+                               <Input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="bg-slate-900 border-white/10 h-8 text-xs w-32" />
+                               <div className="relative">
+                                  <Search className="w-4 h-4 absolute left-3 top-2 text-slate-400" />
+                                  <Input value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Search..." className="bg-slate-900 border-white/10 pl-9 w-40 h-8 text-xs"/>
+                               </div>
                             </div>
                         </div>
                         <div className="overflow-x-auto">
@@ -269,28 +379,28 @@ export default function AdminDashboard() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {complaints.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-500">No complaints found.</td></tr>}
-                                    {complaints.map(c => (
+                                    {filteredComplaints.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-500">No complaints found.</td></tr>}
+                                    {filteredComplaints.map(c => (
                                         <tr key={c.id} className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer group">
                                             <td className="px-6 py-3 font-medium" onClick={() => setSelectedComplaint(c)}>{c.student_name}</td>
                                             <td className="px-6 py-3" onClick={() => setSelectedComplaint(c)}><span className={`
                                                 ${c.category === 'Food' ? 'text-orange-400' : c.category === 'Water' ? 'text-blue-400' : 'text-purple-400'}
                                             `}>{c.category}</span></td>
                                             <td className="px-6 py-3">
-                                                <select 
-                                                    value={c.status} 
-                                                    onChange={(e) => handleUpdateComplaint(c.id, e.target.value)}
-                                                    onClick={(e) => e.stopPropagation()}
-                                                    className={`bg-slate-900/50 border rounded p-1 outline-none text-xs font-bold transition-all ${
+                                                <Select disabled={isProcessing === `complaint_${c.id}`} value={c.status} onValueChange={(val: string) => handleComplaintUpdate(c.id, val)}>
+                                                    <SelectTrigger className={`bg-slate-900/50 border rounded p-1 outline-none text-xs font-bold transition-all ${
                                                         c.status === 'Pending' ? 'border-yellow-500/50 text-yellow-400' : 
                                                         c.status === 'In_Progress' ? 'border-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.3)] text-blue-400' : 
                                                         'border-green-500/50 text-green-400'
-                                                    }`}
-                                                >
-                                                    <option value="Pending">Pending</option>
-                                                    <option value="In_Progress">In Progress</option>
-                                                    <option value="Resolved">Resolved</option>
-                                                </select>
+                                                    } ${isProcessing === `complaint_${c.id}` ? "opacity-50 cursor-not-allowed" : ""}`}>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="bg-slate-900 border-white/10 text-white">
+                                                        <SelectItem value="Pending">Pending</SelectItem>
+                                                        <SelectItem value="In_Progress">In Progress</SelectItem>
+                                                        <SelectItem value="Resolved">Resolved</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
                                             </td>
                                             <td className="px-6 py-3 text-right">
                                                 <button onClick={() => setSelectedComplaint(c)} className="text-slate-400 hover:text-white text-xs underline">View Details</button>
@@ -315,8 +425,12 @@ export default function AdminDashboard() {
                                         <div className="text-xs text-slate-400 mt-1">{l.reason}</div>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleUpdateLeave(l.id, "Approved")} className="px-3 py-1 bg-green-500/10 text-green-400 border border-green-500/30 rounded text-xs hover:bg-green-500 hover:text-white transition-all">Approve</button>
-                                        <button onClick={() => handleUpdateLeave(l.id, "Rejected")} className="px-3 py-1 bg-red-500/10 text-red-500 border border-red-500/30 rounded text-xs hover:bg-red-500 hover:text-white transition-all">Reject</button>
+                                        <Button size="sm" disabled={isProcessing === `leave_${l.id}`} onClick={() => handleLeaveResponse(l.id, "Approved")} className={`flex-1 text-white text-xs ${isProcessing === `leave_${l.id}` ? "bg-green-600/50 cursor-not-allowed" : "bg-green-600 hover:bg-green-500"}`}>
+                                            Approve
+                                        </Button>
+                                        <Button size="sm" disabled={isProcessing === `leave_${l.id}`} onClick={() => handleLeaveResponse(l.id, "Rejected")} className={`flex-1 text-white text-xs ${isProcessing === `leave_${l.id}` ? "bg-red-600/50 cursor-not-allowed" : "bg-red-600 hover:bg-red-500"}`}>
+                                            Reject
+                                        </Button>
                                     </div>
                                 </div>
                             ))}
@@ -330,10 +444,12 @@ export default function AdminDashboard() {
                     {/* Notice Board */}
                     <div className="bg-[#1e293b]/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 shadow-2xl">
                         <h2 className="text-lg font-bold flex items-center gap-2 mb-6 text-purple-400">Notices Manager</h2>
-                        <form onSubmit={handleCreateNotice} className="space-y-4 mb-6 pb-6 border-b border-white/10">
+                        <form onSubmit={handleNoticeSubmit} className="space-y-4 mb-6 pb-6 border-b border-white/10">
                             <div><Label className="text-xs text-slate-400">Title</Label><Input value={noticeTitle} onChange={e => setNoticeTitle(e.target.value)} className="bg-slate-900 border-white/10" required /></div>
                             <div><Label className="text-xs text-slate-400">Content</Label><textarea value={noticeContent} onChange={e => setNoticeContent(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded min-h-[80px]" required /></div>
-                            <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]">Post Notice</Button>
+                            <Button type="submit" disabled={isProcessing === "createNotice"} className={`w-full text-white shadow-[0_0_15px_rgba(168,85,247,0.3)] ${isProcessing === "createNotice" ? "bg-purple-600/50 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-500"}`}>
+                                {isProcessing === "createNotice" ? "Posting..." : "Post Notice"}
+                            </Button>
                         </form>
                         <div className="space-y-4">
                             <h3 className="text-sm font-bold text-slate-300">Recent Notices</h3>
@@ -345,7 +461,9 @@ export default function AdminDashboard() {
                                             <textarea value={editNoticeContent} onChange={e => setEditNoticeContent(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 text-sm rounded min-h-[60px]" required placeholder="Content" />
                                             <div className="flex gap-2">
                                                 <Button type="button" onClick={() => setEditingNoticeId(null)} className="h-7 text-xs flex-1 bg-slate-800 hover:bg-slate-700">Cancel</Button>
-                                                <Button type="submit" className="h-7 text-xs flex-1 bg-purple-600 hover:bg-purple-500">Save</Button>
+                                                <Button type="submit" disabled={isProcessing === "editNotice"} className={`h-7 text-xs flex-1 text-white ${isProcessing === "editNotice" ? "bg-purple-600/50 cursor-not-allowed" : "bg-purple-600 hover:bg-purple-500"}`}>
+                                                    {isProcessing === "editNotice" ? "Saving..." : "Save"}
+                                                </Button>
                                             </div>
                                         </form>
                                     ) : (
@@ -367,12 +485,14 @@ export default function AdminDashboard() {
                     </div>
                     <div className="bg-[#1e293b]/60 backdrop-blur-xl border border-white/10 rounded-xl p-6 shadow-2xl">
                         <h2 className="text-lg font-bold flex items-center gap-2 mb-6"><UtensilsCrossed className="text-orange-400 w-5 h-5"/> Mess Manager</h2>
-                        <form onSubmit={handleCreateMeal} className="space-y-4 mb-6 pb-6 border-b border-white/10">
+                        <form onSubmit={handleMealSubmit} className="space-y-4 mb-6 pb-6 border-b border-white/10">
                             <div><Label className="text-xs text-slate-400">Date</Label><Input type="date" value={date} onChange={e => setDate(e.target.value)} className="bg-slate-900 border-white/10 bg-opacity-50" required/></div>
                             <div><Label className="text-xs text-slate-400">Breakfast</Label><Input value={breakfast} onChange={e => setBreakfast(e.target.value)} className="bg-slate-900 border-white/10" required /></div>
                             <div><Label className="text-xs text-slate-400">Lunch</Label><Input value={lunch} onChange={e => setLunch(e.target.value)} className="bg-slate-900 border-white/10" required /></div>
                             <div><Label className="text-xs text-slate-400">Dinner</Label><Input value={dinner} onChange={e => setDinner(e.target.value)} className="bg-slate-900 border-white/10" required /></div>
-                            <Button type="submit" className="w-full bg-orange-600 hover:bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.3)]">Publish Menu</Button>
+                            <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} type="submit" disabled={isProcessing === "meal_submit"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "meal_submit" ? "bg-amber-600/50 cursor-not-allowed" : "bg-amber-600 hover:bg-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.4)]"}`}>
+                                {isProcessing === "meal_submit" ? "Saving..." : (editingMealId ? "Update Meal" : "Add Meal")}
+                            </motion.button>
                         </form>
                         
                         <div className="space-y-4">
@@ -394,9 +514,15 @@ export default function AdminDashboard() {
                                         <>
                                             <div className="font-mono text-xs text-blue-400 flex justify-between items-center pr-12">
                                                 {m.date}
-                                                <button onClick={() => handleExport(m.id)} className="text-neon-green text-[10px] flex items-center gap-1 border border-green-400 text-green-400 px-2 py-0.5 rounded shadow-[0_0_5px_rgba(34,197,94,0.5)] hover:bg-green-400 hover:text-black transition-all">
-                                                    <Download className="w-3 h-3"/> EXPORT
-                                                </button>
+                                                {new Date(m.date) <= new Date() ? (
+                                                    <button onClick={() => handleExport(m.id)} className="text-neon-green text-[10px] flex items-center gap-1 border border-green-400 text-green-400 px-2 py-0.5 rounded shadow-[0_0_5px_rgba(34,197,94,0.5)] hover:bg-green-400 hover:text-black transition-all">
+                                                        <Download className="w-3 h-3"/> EXPORT
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] text-slate-500 border border-slate-700 px-2 py-0.5 rounded flex items-center gap-1 cursor-not-allowed" title="Export locked until meal date">
+                                                        <Download className="w-3 h-3"/> LOCKED
+                                                    </span>
+                                                )}
                                             </div>
                                             <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute top-2 right-2 flex gap-2">
                                                 <button onClick={() => { setEditingMealId(m.id); setEditMealDate(m.date); setEditBreakfast(m.breakfast); setEditLunch(m.lunch); setEditDinner(m.dinner); }} className="text-blue-400 hover:text-blue-300 text-xs underline">Edit</button>
@@ -471,7 +597,7 @@ export default function AdminDashboard() {
                        <Label className="text-slate-400 text-xs uppercase tracking-widest block mb-2">Update Status</Label>
                        <select 
                             value={selectedComplaint.status} 
-                            onChange={(e) => handleUpdateComplaint(selectedComplaint.id, e.target.value)}
+                            onChange={(e) => handleComplaintUpdate(selectedComplaint.id, e.target.value)}
                             className="w-full bg-slate-900 border border-white/10 rounded-lg p-3 text-white font-bold outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="Pending">Pending</option>
@@ -505,10 +631,55 @@ export default function AdminDashboard() {
                                 <Label className="text-slate-300">New Password</Label>
                                 <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-slate-900 border-white/10 text-white" required />
                             </motion.div>
-                            <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} type="submit" className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_15px_rgba(59,130,246,0.4)]">
-                                Update Password
+                            <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} type="submit" disabled={isProcessing === "passwordChange"} className={`w-full py-2 text-white font-bold rounded ${isProcessing === "passwordChange" ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]"}`}>
+                                {isProcessing === "passwordChange" ? "Updating..." : "Update Password"}
                             </motion.button>
                         </form>
+                    </div>
+                </motion.div>
+            </div>
+        )}
+        {isStudentModalOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
+                <motion.div 
+                   initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                   animate={{ opacity: 1, scale: 1, y: 0 }}
+                   exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                   className="w-full max-w-3xl bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-[85vh] flex flex-col"
+                >
+                    <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-800/50">
+                        <h3 className="text-xl font-bold text-white flex items-center gap-2"><Users className="text-blue-400"/> Registered Students Roster</h3>
+                        <div className="flex gap-4 items-center">
+                            <button onClick={handleExportStudents} className="flex items-center gap-2 bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1.5 rounded transition-all font-bold">
+                                <Download className="w-3 h-3" /> CSV
+                            </button>
+                            <button onClick={() => setStudentModalOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+                        </div>
+                    </div>
+                    <div className="overflow-y-auto p-0">
+                        <table className="w-full text-sm text-left">
+                            <thead className="text-xs text-slate-400 uppercase bg-black/20 sticky top-0">
+                                <tr>
+                                    <th className="px-6 py-3">Student Name</th>
+                                    <th className="px-6 py-3">Email</th>
+                                    <th className="px-6 py-3">Room / Contact</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {students.length === 0 && <tr><td colSpan={3} className="p-4 text-center text-slate-500">No students registered yet.</td></tr>}
+                                {students.map(s => (
+                                    <tr key={s.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                        <td className="px-6 py-3 font-medium text-slate-200">{s.full_name}</td>
+                                        <td className="px-6 py-3 text-slate-400">{s.email}</td>
+                                        <td className="px-6 py-3 text-slate-400 text-xs">
+                                            {s.room_number ? <div>Room: {s.room_number}</div> : null}
+                                            {s.contact ? <div>Ph: {s.contact}</div> : null}
+                                            {!s.room_number && !s.contact && "N/A"}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     </div>
                 </motion.div>
             </div>

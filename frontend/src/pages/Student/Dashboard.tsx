@@ -34,6 +34,7 @@ export default function StudentDashboard() {
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [selectedLeave, setSelectedLeave] = useState<Leave | null>(null);
   const [activeMealGlow, setActiveMealGlow] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
 
   // Forms
   const [compCategory, setCompCategory] = useState("Food");
@@ -74,11 +75,15 @@ export default function StudentDashboard() {
   }, []);
 
   const handleResponse = async (mealId: string, mealType: "breakfast" | "lunch" | "dinner", status: "Having" | "Skipping") => {
+      const lockKey = `${mealId}-${mealType}`;
+      if (isProcessing === lockKey) return;
+      
+      setIsProcessing(lockKey);
       setActiveMealGlow(`${mealId}-${mealType}-${status}`);
       try {
            const token = getAuthToken();
-           await axios.post(`${API_URL}/meals/${mealId}/respond`, { meal_type: mealType, status }, { headers: { Authorization: `Bearer ${token}` } });
-           toast.success(`Marked as ${status} for ${mealType}`);
+           const res = await axios.post(`${API_URL}/meals/${mealId}/respond`, { meal_type: mealType, status }, { headers: { Authorization: `Bearer ${token}` } });
+           toast.success(res.data.message || `Marked as ${status} for ${mealType}`);
            
            // Optimistically update
            setMyResponses(prev => ({
@@ -90,11 +95,16 @@ export default function StudentDashboard() {
       } catch (err: any) {
           toast.error(err.response?.data?.detail || "Failed to record response.");
           setActiveMealGlow(null);
+      } finally {
+          setIsProcessing(null);
       }
   };
 
   const handleComplaintSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "complaint") return;
+    
+    setIsProcessing("complaint");
     try {
       const token = getAuthToken();
       const formData = new FormData();
@@ -111,11 +121,16 @@ export default function StudentDashboard() {
       fetchData();
     } catch {
       toast.error("Failed to submit complaint.");
+    } finally {
+      setIsProcessing(null);
     }
   };
 
   const handleLeaveSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "leave") return;
+    
+    setIsProcessing("leave");
     try {
       const token = getAuthToken();
       await axios.post(`${API_URL}/leaves/`, { start_date: leaveStart, end_date: leaveEnd, reason: leaveReason }, 
@@ -127,11 +142,16 @@ export default function StudentDashboard() {
       fetchData();
     } catch {
       toast.error("Failed to request leave.");
+    } finally {
+      setIsProcessing(null);
     }
   };
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isProcessing === "password") return;
+    
+    setIsProcessing("password");
     try {
       await axios.post(`${API_URL}/auth/change-password`, { old_password: oldPassword, new_password: newPassword }, 
         { headers: { Authorization: `Bearer ${getAuthToken()}` } }
@@ -141,6 +161,8 @@ export default function StudentDashboard() {
       setOldPassword(""); setNewPassword("");
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Failed to update password.");
+    } finally {
+      setIsProcessing(null);
     }
   };
 
@@ -233,31 +255,28 @@ export default function StudentDashboard() {
                                         <div className="text-lg font-medium text-white mt-1">{val}</div>
                                     </div>
                                     
-                                    {curStatus ? (
-                                        <div className={`text-center text-xs font-bold p-2 rounded border ${
-                                            curStatus === 'Having' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 
-                                            'bg-red-500/10 text-red-500 border-red-500/30'
-                                        }`}>
-                                            ALREADY VOTED: {curStatus.toUpperCase()}
-                                        </div>
-                                    ) : (
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <motion.button 
-                                                whileTap={{ scale: 0.95 }}
-                                                onClick={() => handleResponse(meal.id, type, "Having")}
-                                                className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${activeMealGlow === `${meal.id}-${type}-Having` ? 'bg-green-500/20 border-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)]' : 'border-green-500/30 hover:bg-green-500/10 text-green-400'}`}
-                                            >
-                                                <Check className="w-4 h-4" /> <span className="text-xs font-bold">HAVING</span>
-                                            </motion.button>
-                                            <motion.button 
-                                                whileTap={{ scale: 0.95 }}
-                                                onClick={() => handleResponse(meal.id, type, "Skipping")}
-                                                className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${activeMealGlow === `${meal.id}-${type}-Skipping` ? 'bg-red-500/20 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'border-red-500/30 hover:bg-red-500/10 text-red-500'}`}
-                                            >
-                                                <X className="w-4 h-4" /> <span className="text-xs font-bold">SKIPPING</span>
-                                            </motion.button>
-                                        </div>
-                                    )}
+                                    <div className="grid grid-cols-2 gap-3 mt-4">
+                                        <motion.button 
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => handleResponse(meal.id, type, "Having")}
+                                            disabled={isProcessing === `${meal.id}-${type}`}
+                                            className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
+                                                isProcessing === `${meal.id}-${type}` ? 'opacity-50 cursor-not-allowed' : ''
+                                            } ${curStatus === 'Having' || activeMealGlow === `${meal.id}-${type}-Having` ? 'bg-green-500/20 border-green-400 shadow-[0_0_15px_rgba(34,197,94,0.4)] text-green-400' : 'border-green-500/30 hover:bg-green-500/10 text-green-500'}`}
+                                        >
+                                            <Check className="w-4 h-4" /> <span className="text-xs font-bold">{isProcessing === `${meal.id}-${type}` ? 'WAIT...' : 'HAVING'}</span>
+                                        </motion.button>
+                                        <motion.button 
+                                            whileTap={{ scale: 0.95 }}
+                                            onClick={() => handleResponse(meal.id, type, "Skipping")}
+                                            disabled={isProcessing === `${meal.id}-${type}`}
+                                            className={`flex items-center justify-center gap-2 p-2 rounded-lg border transition-all ${
+                                                isProcessing === `${meal.id}-${type}` ? 'opacity-50 cursor-not-allowed' : ''
+                                            } ${curStatus === 'Skipping' || activeMealGlow === `${meal.id}-${type}-Skipping` ? 'bg-red-500/20 border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.4)] text-red-500' : 'border-red-500/30 hover:bg-red-500/10 text-red-500'}`}
+                                        >
+                                            <X className="w-4 h-4" /> <span className="text-xs font-bold">{isProcessing === `${meal.id}-${type}` ? 'WAIT...' : 'SKIPPING'}</span>
+                                        </motion.button>
+                                    </div>
                                 </div>
                             );
                         })}
@@ -355,8 +374,8 @@ export default function StudentDashboard() {
                                     <Label className="text-slate-300">Image (Optional)</Label>
                                     <Input type="file" accept="image/*" onChange={(e) => setCompImage(e.target.files?.[0] || null)} className="bg-slate-900 border-white/10 text-slate-300 font-mono text-sm" />
                                 </motion.div>
-                                <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} type="submit" className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_15px_rgba(59,130,246,0.4)]">
-                                    Submit Ticket
+                                <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} type="submit" disabled={isProcessing === "complaint"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "complaint" ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]"}`}>
+                                    {isProcessing === "complaint" ? "Submitting..." : "Submit Ticket"}
                                 </motion.button>
                             </form>
                         </div>
@@ -382,8 +401,8 @@ export default function StudentDashboard() {
                                     <Label className="text-slate-300">Reason</Label>
                                     <textarea value={leaveReason} onChange={(e) => setLeaveReason(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded min-h-[80px]" required />
                                 </motion.div>
-                                <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} type="submit" className="w-full py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded shadow-[0_0_15px_rgba(34,197,94,0.4)]">
-                                    Submit Request
+                                <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} type="submit" disabled={isProcessing === "leave"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "leave" ? "bg-green-600/50 cursor-not-allowed" : "bg-green-600 hover:bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]"}`}>
+                                    {isProcessing === "leave" ? "Submitting..." : "Submit Request"}
                                 </motion.button>
                             </form>
                         </div>
@@ -403,8 +422,8 @@ export default function StudentDashboard() {
                                     <Label className="text-slate-300">New Password</Label>
                                     <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="bg-slate-900 border-white/10 text-white" required />
                                 </motion.div>
-                                <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} type="submit" className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded shadow-[0_0_15px_rgba(59,130,246,0.4)]">
-                                    Update Password
+                                <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} type="submit" disabled={isProcessing === "password"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "password" ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]"}`}>
+                                    {isProcessing === "password" ? "Updating..." : "Update Password"}
                                 </motion.button>
                             </form>
                         </div>

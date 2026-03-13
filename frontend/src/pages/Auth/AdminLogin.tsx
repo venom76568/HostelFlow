@@ -13,10 +13,14 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+
+    setIsLoading(true);
     try {
         const formData = new FormData();
         formData.append("username", email);
@@ -34,6 +38,8 @@ export default function AdminLogin() {
         navigate(`/${slug}/admin`);
     } catch (err: any) {
         toast.error(err.response?.data?.detail || "Invalid credentials");
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -74,7 +80,9 @@ export default function AdminLogin() {
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-4">
-              <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-500 text-white">Login</Button>
+              <Button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white">
+                {isLoading ? "Verifying..." : "Login"}
+              </Button>
               <Button type="button" variant="ghost" className="w-full text-slate-400" onClick={() => navigate('/login')}>Back to System Login</Button>
             </CardFooter>
           </form>

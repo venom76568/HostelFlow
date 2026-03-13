@@ -16,10 +16,14 @@ export default function StudentRegister() {
   const [password, setPassword] = useState("");
   const [collegeCode, setCollegeCode] = useState("");
   const [roomNumber, setRoomNumber] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+
+    setIsLoading(true);
     try {
         await axios.post(`${API_URL}/auth/register/student`, {
             full_name: fullName,
@@ -32,6 +36,8 @@ export default function StudentRegister() {
         navigate('/student-login');
     } catch (err: any) {
         toast.error(err.response?.data?.detail || "Registration failed. Check your College Code.");
+    } finally {
+        setIsLoading(false);
     }
   };
 
@@ -99,7 +105,9 @@ export default function StudentRegister() {
               </div>
             </CardContent>
             <CardFooter className="flex-col gap-4">
-              <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-500 text-white">Register</Button>
+              <Button type="submit" disabled={isLoading} className="w-full bg-purple-600 hover:bg-purple-500 text-white">
+                {isLoading ? "Registering..." : "Register"}
+              </Button>
               <div className="text-sm text-slate-500 text-center">
                   Already have an account? <span className="text-purple-400 cursor-pointer hover:underline" onClick={() => navigate('/student-login')}>Login instead</span>
               </div>
