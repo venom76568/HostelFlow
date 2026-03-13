@@ -78,13 +78,14 @@ export default function AdminDashboard() {
     try {
       const token = getAuthToken();
       const headers = { Authorization: `Bearer ${token}` };
-      const [m, c, l, n] = await Promise.all([
+      const [m, c, l, n, s] = await Promise.all([
         axios.get(`${API_URL}/meals/`, { headers }),
         axios.get(`${API_URL}/complaints/`, { headers }),
         axios.get(`${API_URL}/leaves/`, { headers }),
-        axios.get(`${API_URL}/notices/`, { headers })
+        axios.get(`${API_URL}/notices/`, { headers }),
+        axios.get(`${API_URL}/users/students`, { headers })
       ]);
-      setMeals(m.data); setComplaints(c.data); setLeaves(l.data); setNotices(n.data);
+      setMeals(m.data); setComplaints(c.data); setLeaves(l.data); setNotices(n.data); setStudents(s.data);
     } catch (err: any) {
       if (err.response?.status === 401 || err.response?.status === 403) handleLogout();
     }
@@ -236,14 +237,6 @@ export default function AdminDashboard() {
     } catch (err: any) { toast.error(err.response?.data?.detail || "Export failed"); }
   };
 
-  const handleFetchStudents = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/users/students`, { headers: { Authorization: `Bearer ${getAuthToken()}` } });
-      setStudents(res.data);
-      setStudentModalOpen(true);
-    } catch { toast.error("Failed to load student roster"); }
-  };
-
   const handleExportStudents = () => {
     const headers = ["ID", "Name", "Email", "Room", "Contact"];
     const rows = students.map(s => [s.id, s.full_name, s.email, s.room_number || "N/A", s.contact || "N/A"]);
@@ -313,7 +306,7 @@ export default function AdminDashboard() {
             </header>
 
             {/* Metric Cards */}
-            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-6">
                <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-yellow-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-yellow-500/50 transition-all">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/20 transition-all"/>
                   <h3 className="text-slate-400 text-sm font-medium">Open Complaints</h3>
@@ -330,9 +323,14 @@ export default function AdminDashboard() {
                          <CalendarRange className="w-8 h-8 text-blue-400" />
                          <span className="text-4xl font-bold font-mono text-white">{pendingLeaves}</span>
                      </div>
-                     <button onClick={handleFetchStudents} className="flex items-center gap-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-xs px-3 py-2 rounded border border-blue-500/30 transition-all z-10">
-                         <Users className="w-4 h-4"/> Roster
-                     </button>
+                  </div>
+               </motion.div>
+               <motion.div variants={itemVariants} onClick={() => setStudentModalOpen(true)} className="bg-[#1e293b]/50 backdrop-blur-xl border border-purple-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-purple-500/50 transition-all cursor-pointer flex flex-col justify-between">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-500/10 rounded-full blur-2xl group-hover:bg-purple-500/20 transition-all"/>
+                  <h3 className="text-slate-400 text-sm font-medium">Connected Students</h3>
+                  <div className="mt-2 flex items-center gap-4">
+                     <Users className="w-8 h-8 text-purple-400" />
+                     <span className="text-4xl font-bold font-mono text-white">{students.length}</span>
                   </div>
                </motion.div>
             </motion.div>
