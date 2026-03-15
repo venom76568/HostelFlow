@@ -7,6 +7,8 @@ import AdminLogin from './pages/Auth/AdminLogin';
 import StudentLogin from './pages/Auth/StudentLogin';
 import StudentRegister from './pages/Auth/StudentRegister';
 import Home from './pages/Home';
+import About from './pages/About';
+import Contact from './pages/Contact';
 import AdminDashboard from './pages/Admin/Dashboard'; // Placeholder for Phase 4
 import StudentDashboard from './pages/Student/Dashboard'; // Placeholder for Phase 4
 import ProtectedRoute from './components/ProtectedRoute'; // Placeholder for Phase 3
@@ -19,6 +21,8 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
           <Route path="/super-panel/login" element={<SuperAdminLogin />} />
           <Route path="/super-panel" element={<SuperAdminDashboard />} />
           <Route path="/login" element={<GlobalLogin />} />

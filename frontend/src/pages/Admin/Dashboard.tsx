@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { removeAuthToken, getAuthToken } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LayoutDashboard, AlertTriangle, CalendarRange,
-  UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound, Users
+  UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound, Users,
+  CheckCircle2, XCircle, Clock, TrendingUp, FileDown, Filter
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -73,6 +74,11 @@ export default function AdminDashboard() {
   const [filterCategory, setFilterCategory] = useState("All");
   const [filterDate, setFilterDate] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Leave filter states
+  const [leaveFilterStatus, setLeaveFilterStatus] = useState("All");
+  const [leaveFilterDate, setLeaveFilterDate] = useState("");
+  const [leaveSearchStudent, setLeaveSearchStudent] = useState("");
 
   const fetchData = async () => {
     try {
@@ -263,6 +269,62 @@ export default function AdminDashboard() {
     return match;
   });
 
+  // ─── Leave analytics ──────────────────────────────────────────────────────
+  const today = new Date().toISOString().slice(0, 10);
+  const startOfWeek = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - d.getDay());
+    return d.toISOString().slice(0, 10);
+  })();
+
+  const leavesToday    = leaves.filter(l => l.start_date === today).length;
+  const leavesThisWeek = leaves.filter(l => l.start_date >= startOfWeek).length;
+  const leavesPending  = leaves.filter(l => l.status === "Pending").length;
+
+  // Filtered leaves
+  const filteredLeaves = useMemo(() => {
+    return leaves.filter(l => {
+      if (leaveFilterStatus !== "All" && l.status !== leaveFilterStatus) return false;
+      if (leaveFilterDate && !l.start_date.startsWith(leaveFilterDate)) return false;
+      if (leaveSearchStudent && !l.student_name?.toLowerCase().includes(leaveSearchStudent.toLowerCase())) return false;
+      return true;
+    });
+  }, [leaves, leaveFilterStatus, leaveFilterDate, leaveSearchStudent]);
+
+  // Group filtered leaves by start_date
+  const groupedLeaves = useMemo(() => {
+    const groups: Record<string, typeof leaves> = {};
+    for (const l of filteredLeaves) {
+      const key = l.start_date || "Unknown";
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(l);
+    }
+    // Return sorted descending
+    return Object.entries(groups).sort(([a], [b]) => (a < b ? 1 : -1));
+  }, [filteredLeaves]);
+
+  const handleExportLeaves = async () => {
+    try {
+      const token = getAuthToken();
+      const params: Record<string, string> = {};
+      if (leaveFilterStatus !== "All") params.status_filter = leaveFilterStatus;
+      if (leaveFilterDate) params.start_date = leaveFilterDate;
+      const response = await axios.get(`${API_URL}/leaves/export`, {
+        headers: { Authorization: `Bearer ${token}` },
+        params,
+        responseType: 'blob'
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `leaves_export.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      toast.success("Leave records exported!");
+    } catch { toast.error("Export failed."); }
+  };
+
   const containerVariants = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.1 } } };
   const itemVariants = { hidden: { y: 20, opacity: 0 }, show: { y: 0, opacity: 1 } };
 
@@ -410,29 +472,146 @@ export default function AdminDashboard() {
                         </div>
                     </div>
 
-                    {/* Pending Leaves */}
+                    {/* ═══════════════════════════════════════════════ */}
+                    {/* LEAVE MANAGEMENT PANEL                          */}
+                    {/* ═══════════════════════════════════════════════ */}
                     <div className="bg-[#1e293b]/40 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                         <div className="p-4 border-b border-white/10 bg-white/5">
-                            <h2 className="font-bold flex items-center gap-2"><CalendarRange className="w-5 h-5 text-blue-500"/> Leave Approvals</h2>
+                        {/* Panel Header */}
+                        <div className="p-4 border-b border-white/10 bg-white/5 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                            <h2 className="font-bold flex items-center gap-2 whitespace-nowrap">
+                                <CalendarRange className="w-5 h-5 text-blue-500"/> Leave Management
+                            </h2>
+                            <button
+                                onClick={handleExportLeaves}
+                                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-3 py-1.5 rounded transition-all font-bold"
+                            >
+                                <FileDown className="w-3.5 h-3.5" /> Export CSV
+                            </button>
                         </div>
-                        <div className="p-2 space-y-2">
-                            {leaves.filter(l => l.status === "Pending").map(l => (
-                                <div key={l.id} className="p-4 bg-black/20 rounded-lg flex justify-between items-center border border-white/5 hover:border-white/10 transition-colors">
-                                    <div>
-                                        <div className="font-bold text-sm">{l.student_name} <span className="text-xs text-slate-400 font-normal ml-2">{l.start_date} to {l.end_date}</span></div>
-                                        <div className="text-xs text-slate-400 mt-1">{l.reason}</div>
+
+                        {/* Analytics Row */}
+                        <div className="grid grid-cols-3 gap-0 border-b border-white/10">
+                            <div className="p-4 text-center border-r border-white/10">
+                                <div className="text-2xl font-bold font-mono text-blue-400">{leavesToday}</div>
+                                <div className="text-xs text-slate-500 mt-1 flex items-center justify-center gap-1"><Clock className="w-3 h-3"/> Today</div>
+                            </div>
+                            <div className="p-4 text-center border-r border-white/10">
+                                <div className="text-2xl font-bold font-mono text-purple-400">{leavesThisWeek}</div>
+                                <div className="text-xs text-slate-500 mt-1 flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3"/> This Week</div>
+                            </div>
+                            <div className="p-4 text-center">
+                                <div className="text-2xl font-bold font-mono text-amber-400">{leavesPending}</div>
+                                <div className="text-xs text-slate-500 mt-1 flex items-center justify-center gap-1"><Filter className="w-3 h-3"/> Pending</div>
+                            </div>
+                        </div>
+
+                        {/* Filter Bar */}
+                        <div className="p-3 border-b border-white/10 bg-black/10 flex flex-wrap gap-2 items-center">
+                            <select
+                                value={leaveFilterStatus}
+                                onChange={e => setLeaveFilterStatus(e.target.value)}
+                                className="bg-slate-900 border border-white/10 text-xs p-2 rounded outline-none text-slate-300 h-8"
+                            >
+                                <option value="All">All Status</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Rejected">Rejected</option>
+                            </select>
+                            <Input
+                                type="date"
+                                value={leaveFilterDate}
+                                onChange={e => setLeaveFilterDate(e.target.value)}
+                                className="bg-slate-900 border-white/10 h-8 text-xs w-32"
+                                title="Filter by Start Date"
+                            />
+                            <div className="relative flex-1 min-w-[140px]">
+                                <Search className="w-3.5 h-3.5 absolute left-2.5 top-2 text-slate-400" />
+                                <Input
+                                    value={leaveSearchStudent}
+                                    onChange={e => setLeaveSearchStudent(e.target.value)}
+                                    placeholder="Search student..."
+                                    className="bg-slate-900 border-white/10 pl-8 h-8 text-xs"
+                                />
+                            </div>
+                            {(leaveFilterStatus !== "All" || leaveFilterDate || leaveSearchStudent) && (
+                                <button
+                                    onClick={() => { setLeaveFilterStatus("All"); setLeaveFilterDate(""); setLeaveSearchStudent(""); }}
+                                    className="text-xs text-slate-400 hover:text-white flex items-center gap-1 border border-white/10 rounded px-2 h-8"
+                                >
+                                    <X className="w-3 h-3"/> Clear
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Date-Grouped Table */}
+                        <div className="divide-y divide-white/5 max-h-[500px] overflow-y-auto">
+                            {groupedLeaves.length === 0 && (
+                                <div className="p-8 text-center text-sm text-slate-500">No leave records found.</div>
+                            )}
+                            {groupedLeaves.map(([date, groupLeaves]) => (
+                                <motion.div
+                                    key={date}
+                                    initial={{ opacity: 0, y: 8 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                	className=""
+                                >
+                                    {/* Date Group Header */}
+                                    <div className="px-4 py-2 bg-slate-800/60 text-xs font-semibold text-blue-400 uppercase tracking-wider flex items-center gap-2">
+                                        <CalendarRange className="w-3.5 h-3.5" />
+                                        {new Date(date + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                                        <span className="text-slate-600 font-normal normal-case">({groupLeaves.length} record{groupLeaves.length !== 1 ? "s" : ""})</span>
                                     </div>
-                                    <div className="flex gap-2">
-                                        <Button size="sm" disabled={isProcessing === `leave_${l.id}`} onClick={() => handleLeaveResponse(l.id, "Approved")} className={`flex-1 text-white text-xs ${isProcessing === `leave_${l.id}` ? "bg-green-600/50 cursor-not-allowed" : "bg-green-600 hover:bg-green-500"}`}>
-                                            Approve
-                                        </Button>
-                                        <Button size="sm" disabled={isProcessing === `leave_${l.id}`} onClick={() => handleLeaveResponse(l.id, "Rejected")} className={`flex-1 text-white text-xs ${isProcessing === `leave_${l.id}` ? "bg-red-600/50 cursor-not-allowed" : "bg-red-600 hover:bg-red-500"}`}>
-                                            Reject
-                                        </Button>
-                                    </div>
-                                </div>
+
+                                    {/* Rows */}
+                                    {groupLeaves.map(l => (
+                                        <div key={l.id} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-t border-white/5 hover:bg-white/5 transition-colors">
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-semibold text-sm text-slate-200 truncate">{l.student_name || "Unknown"}</div>
+                                                <div className="text-xs text-slate-400 mt-0.5">
+                                                    <span className="font-mono">{l.start_date}</span>
+                                                    {l.end_date && l.end_date !== l.start_date && (
+                                                        <span className="font-mono"> → {l.end_date}</span>
+                                                    )}
+                                                </div>
+                                                <div className="text-xs text-slate-500 mt-0.5 truncate" title={l.reason}>{l.reason}</div>
+                                            </div>
+
+                                            <div className="flex items-center gap-3 flex-shrink-0">
+                                                {/* Status Badge */}
+                                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${
+                                                    l.status === "Pending"  ? "border-amber-500/50 text-amber-400 bg-amber-500/10" :
+                                                    l.status === "Approved" ? "border-green-500/50 text-green-400 bg-green-500/10" :
+                                                    "border-red-500/50 text-red-400 bg-red-500/10"
+                                                }`}>{l.status}</span>
+
+                                                {/* Action Buttons — only for Pending */}
+                                                {l.status === "Pending" && (
+                                                    <div className="flex gap-1.5">
+                                                        <button
+                                                            disabled={isProcessing === `leave_${l.id}`}
+                                                            onClick={() => handleLeaveResponse(l.id, "Approved")}
+                                                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded font-semibold transition-all ${
+                                                                isProcessing === `leave_${l.id}` ? "bg-green-600/40 cursor-not-allowed text-green-400" : "bg-green-600 hover:bg-green-500 text-white"
+                                                            }`}
+                                                        >
+                                                            <CheckCircle2 className="w-3 h-3" /> Approve
+                                                        </button>
+                                                        <button
+                                                            disabled={isProcessing === `leave_${l.id}`}
+                                                            onClick={() => handleLeaveResponse(l.id, "Rejected")}
+                                                            className={`flex items-center gap-1 text-xs px-2 py-1 rounded font-semibold transition-all ${
+                                                                isProcessing === `leave_${l.id}` ? "bg-red-600/40 cursor-not-allowed text-red-400" : "bg-red-600 hover:bg-red-500 text-white"
+                                                            }`}
+                                                        >
+                                                            <XCircle className="w-3 h-3" /> Reject
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </motion.div>
                             ))}
-                            {leaves.filter(l => l.status === "Pending").length === 0 && <div className="p-4 text-center text-sm text-slate-500">No pending leaves.</div>}
                         </div>
                     </div>
                 </div>
