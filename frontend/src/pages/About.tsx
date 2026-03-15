@@ -38,7 +38,7 @@ export default function About() {
                 Redefining <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Hostel Management</span>
             </h2>
             <p className="text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
-                HostelFlow was built with a single mission: to eliminate the administrative friction in educational institutions. We empower wardens with powerful tools and provide students with a seamless campus living experience.
+                Jainpro was built with a single mission: to eliminate the administrative friction in educational institutions. We empower wardens with powerful tools and provide students with a seamless campus living experience.
             </p>
         </motion.div>
       </section>
@@ -57,7 +57,7 @@ export default function About() {
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div className="bg-slate-800/40 p-6 rounded-2xl border border-white/5">
                 <Users className="w-10 h-10 text-blue-400 mb-4" />
-                <h4 className="text-xl font-semibold mb-2">Student Roster</h4>
+                <h4 className="text-xl font-semibold mb-2">Track connected students</h4>
                 <p className="text-slate-400">Keep track of every resident seamlessly. Quick access to emergency contacts and room assignments.</p>
             </div>
             <div className="bg-slate-800/40 p-6 rounded-2xl border border-white/5">
