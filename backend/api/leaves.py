@@ -1,9 +1,13 @@
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from db.mongodb import get_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.leave import LeaveDB
 from datetime import datetime, timezone
+from typing import Optional
 
 router = APIRouter(prefix="/api/leaves", tags=["leaves"])
 
@@ -40,25 +44,104 @@ async def request_leave(
 async def list_leaves(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    status_filter: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    student_name: Optional[str] = None,
 ):
-    query = {"tenant_id": tenant_id}
+    query: dict = {"tenant_id": tenant_id}
     
     if token_data.get("role") == "Student":
         query["user_id"] = token_data.get("uid")
-        
-    cursor = db["leaves"].find(query).sort("created_at", -1)
-    leaves = await cursor.to_list(length=100)
+
+    # Apply optional filters (admin only meaningful for most)
+    if status_filter and status_filter != "All":
+        query["status"] = status_filter
+    if start_date:
+        query["start_date"] = {"$gte": start_date}
+    if end_date:
+        # filter leaves that start on or before end_date
+        query.setdefault("start_date", {})
+        if isinstance(query["start_date"], dict):
+            query["start_date"]["$lte"] = end_date
+        else:
+            query["start_date"] = {"$lte": end_date}
+
+    cursor = db["leaves"].find(query).sort("start_date", -1)
+    leaves = await cursor.to_list(length=500)
     for leave in leaves:
         leave["_id"] = str(leave["_id"])
     
     if token_data.get("role") == "Admin":
-         for leave in leaves:
-             user = await db["users"].find_one({"id": leave["user_id"]})
-             if user:
-                 leave["student_name"] = user["full_name"]
+        for leave in leaves:
+            user = await db["users"].find_one({"id": leave["user_id"]})
+            if user:
+                leave["student_name"] = user["full_name"]
+        # Client-side student_name filter (case-insensitive substring)
+        if student_name:
+            leaves = [l for l in leaves if student_name.lower() in l.get("student_name", "").lower()]
 
     return leaves
+
+
+@router.get("/export")
+async def export_leaves_csv(
+    token_data: dict = Depends(get_current_user_token_data),
+    tenant_id: str = Depends(get_current_tenant),
+    db = Depends(get_database),
+    status_filter: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+):
+    """Export all leaves for this tenant as a CSV file."""
+    if token_data.get("role") != "Admin":
+        raise HTTPException(status_code=403, detail="Only Admins can export leave records.")
+
+    query: dict = {"tenant_id": tenant_id}
+    if status_filter and status_filter != "All":
+        query["status"] = status_filter
+    if start_date:
+        query["start_date"] = {"$gte": start_date}
+    if end_date:
+        query.setdefault("start_date", {})
+        if isinstance(query["start_date"], dict):
+            query["start_date"]["$lte"] = end_date
+        else:
+            query["start_date"] = {"$lte": end_date}
+
+    cursor = db["leaves"].find(query).sort("start_date", -1)
+    leaves = await cursor.to_list(length=5000)
+
+    # Enrich with student names
+    for leave in leaves:
+        leave["_id"] = str(leave["_id"])
+        user = await db["users"].find_one({"id": leave["user_id"]})
+        leave["student_name"] = user["full_name"] if user else "Unknown"
+
+    # Build CSV
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Leave ID", "Student Name", "Start Date", "End Date", "Reason", "Status", "Created At"])
+    for l in leaves:
+        writer.writerow([
+            l.get("id", ""),
+            l.get("student_name", ""),
+            l.get("start_date", ""),
+            l.get("end_date", ""),
+            l.get("reason", ""),
+            l.get("status", ""),
+            l.get("created_at", ""),
+        ])
+
+    output.seek(0)
+    filename = f"leaves_export_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
 
 @router.patch("/{leave_id}/status")
 async def update_leave_status(

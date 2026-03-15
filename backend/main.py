@@ -8,6 +8,7 @@ from api.complaints import router as complaints_router
 from api.leaves import router as leaves_router
 from api.notices import router as notices_router
 from api.users import router as users_router
+from api.contact import router as contact_router
 from db.mongodb import connect_to_mongo, close_mongo_connection, get_database
 from api.deps import get_current_tenant
 from contextlib import asynccontextmanager
@@ -37,6 +38,7 @@ app.include_router(complaints_router)
 app.include_router(leaves_router)
 app.include_router(notices_router)
 app.include_router(users_router)
+app.include_router(contact_router)
 
 # Serve uploaded files for complaints (and later possibly profile pics)
 import os

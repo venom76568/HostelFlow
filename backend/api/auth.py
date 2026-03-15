@@ -5,8 +5,12 @@ from db.mongodb import get_database
 from models.user import UserDB
 from core.security import verify_password, get_password_hash, create_access_token
 from core.config import settings
+from core.email import send_otp_email
 from api.deps import get_current_user_token_data
 from typing import Optional
+from datetime import datetime, timezone, timedelta
+import random
+import string
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -108,3 +112,135 @@ async def change_password(request: ChangePasswordRequest, token_data: dict = Dep
         {"$set": {"password_hash": get_password_hash(request.new_password)}}
     )
     return {"message": "Password updated successfully."}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Forgot Password — OTP Flow
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PasswordResetRequestBody(BaseModel):
+    email: str
+
+class OTPVerifyBody(BaseModel):
+    email: str
+    otp: str
+
+class ResetPasswordBody(BaseModel):
+    email: str
+    new_password: str
+
+
+def _generate_otp(length: int = 6) -> str:
+    return "".join(random.choices(string.digits, k=length))
+
+
+@router.post("/request-password-reset")
+async def request_password_reset(body: PasswordResetRequestBody, db = Depends(get_database)):
+    """
+    Step 1: Check if email exists, generate OTP, store it, and email it.
+    Rate limit: if a non-expired token already exists for this email, reject.
+    """
+    email = body.email.strip().lower()
+
+    # Check if user exists (admin or student — anyone in users collection)
+    user = await db["users"].find_one({"email": email})
+    # Also allow SuperAdmin email reset (they exist only in .env, not DB)
+    is_superadmin = (email == settings.SUPERADMIN_EMAIL.lower())
+
+    if not user and not is_superadmin:
+        # Return generic message to avoid email enumeration
+        return {"message": "If this email is registered, you will receive an OTP shortly."}
+
+    # Rate limit: check for existing non-expired token
+    now = datetime.now(timezone.utc)
+    existing_token = await db["password_reset_tokens"].find_one({"email": email, "expires_at": {"$gt": now}})
+    if existing_token:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="An OTP was already sent. Please wait for it to expire (10 minutes) before requesting a new one."
+        )
+
+    # Generate OTP and store it
+    otp = _generate_otp()
+    expires_at = now + timedelta(minutes=10)
+
+    # Delete any stale (expired) tokens for this email first
+    await db["password_reset_tokens"].delete_many({"email": email})
+
+    await db["password_reset_tokens"].insert_one({
+        "email": email,
+        "otp": otp,
+        "expires_at": expires_at,
+        "created_at": now,
+        "used": False,
+    })
+
+    # Send OTP
+    await send_otp_email(email, otp)
+
+    return {"message": "If this email is registered, you will receive an OTP shortly."}
+
+
+@router.post("/verify-otp")
+async def verify_otp(body: OTPVerifyBody, db = Depends(get_database)):
+    """
+    Step 2: Verify OTP. Returns success token hint if valid.
+    """
+    email = body.email.strip().lower()
+    now = datetime.now(timezone.utc)
+
+    token_doc = await db["password_reset_tokens"].find_one({
+        "email": email,
+        "otp": body.otp,
+        "expires_at": {"$gt": now},
+        "used": False,
+    })
+
+    if not token_doc:
+        raise HTTPException(status_code=400, detail="Invalid or expired OTP.")
+
+    return {"message": "OTP verified successfully. You may now reset your password."}
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordBody, db = Depends(get_database)):
+    """
+    Step 3: Reset password. Requires a valid, unused, non-expired OTP to still exist.
+    After resetting, the OTP token is deleted (one-time use).
+    """
+    email = body.email.strip().lower()
+    now = datetime.now(timezone.utc)
+
+    token_doc = await db["password_reset_tokens"].find_one({
+        "email": email,
+        "expires_at": {"$gt": now},
+        "used": False,
+    })
+
+    if not token_doc:
+        raise HTTPException(status_code=400, detail="OTP session expired or not verified. Please restart the reset flow.")
+
+    new_hash = get_password_hash(body.new_password)
+
+    # Check if SuperAdmin
+    if email == settings.SUPERADMIN_EMAIL.lower():
+        # SuperAdmin password lives in .env, cannot be changed via DB reset.
+        # Delete the token and return an error.
+        await db["password_reset_tokens"].delete_many({"email": email})
+        raise HTTPException(
+            status_code=400,
+            detail="SuperAdmin password must be updated via the .env file, not this flow."
+        )
+
+    result = await db["users"].update_one(
+        {"email": email},
+        {"$set": {"password_hash": new_hash}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # Invalidate the OTP token (delete it)
+    await db["password_reset_tokens"].delete_many({"email": email})
+
+    return {"message": "Password reset successfully. You can now log in with your new password."}

@@ -12,6 +12,14 @@ class Settings(BaseSettings):
     SUPERADMIN_EMAIL: str
     SUPERADMIN_PASSWORD: str
 
+    # Email / SMTP settings for OTP delivery
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USER: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    MAIL_FROM: str = "noreply@hostelflow.com"
+    MAIL_FROM_NAME: str = "HostelFlow"
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()
