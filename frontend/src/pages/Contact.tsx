@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, CheckCircle2, MessageSquare } from "lucide-react";
+import { Building2, CheckCircle2, MessageSquare, Menu, X as XIcon } from "lucide-react";
 import axios from "axios";
 import toast from "react-hot-toast";
 
@@ -13,6 +13,7 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
 export default function Contact() {
   const navigate = useNavigate();
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
@@ -43,25 +44,49 @@ export default function Contact() {
     <div className="min-h-screen bg-[#0f172a] text-slate-50 font-sans overflow-hidden">
       {/* Navbar */}
       <nav className="relative z-10 border-b border-white/5 bg-[#111827]/50 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                <Building2 className="text-blue-500"/> HostelFlow
+                <Building2 className="text-blue-500"/> Jainpro
             </h1>
-            <div className="flex gap-4 items-center">
-                <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/')}>
-                    Home
-                </Button>
-                <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/about')}>
-                    About Us
-                </Button>
-                <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/contact')}>
-                    Contact Us
-                </Button>
-                <Button className="bg-blue-600 hover:bg-blue-500 text-white" onClick={() => navigate('/login')}>
-                    Sign In
-                </Button>
+
+            {/* Desktop Nav */}
+            <div className="hidden md:flex gap-4 items-center">
+                <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/')}>Home</Button>
+                <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/about')}>About Us</Button>
+                <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/contact')}>Contact Us</Button>
+                <Button className="bg-blue-600 hover:bg-blue-500 text-white" onClick={() => navigate('/login')}>Sign In/Sign Up</Button>
+            </div>
+
+            {/* Mobile Nav */}
+            <div className="flex md:hidden items-center gap-2">
+                <Button className="bg-blue-600 hover:bg-blue-500 text-white text-sm px-3 py-1.5 h-auto" onClick={() => navigate('/login')}>Sign In/Sign Up</Button>
+                <button
+                    onClick={() => setMobileOpen(o => !o)}
+                    className="p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors"
+                    aria-label="Toggle menu"
+                >
+                    {mobileOpen ? <XIcon className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                </button>
             </div>
         </div>
+
+        {/* Mobile Dropdown */}
+        <AnimatePresence>
+          {mobileOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              transition={{ duration: 0.2 }}
+              className="md:hidden border-t border-white/5 bg-[#111827]/80 backdrop-blur-xl overflow-hidden"
+            >
+              <div className="px-6 py-3 flex flex-col gap-1">
+                <button onClick={() => { navigate('/about'); setMobileOpen(false); }} className="text-left px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium">About Us</button>
+                <button onClick={() => { navigate('/contact'); setMobileOpen(false); }} className="text-left px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium">Contact Us</button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* Contact Content */}
