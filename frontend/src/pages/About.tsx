@@ -25,7 +25,7 @@ export default function About() {
                     Contact Us
                 </Button>
                 <Button className="bg-blue-600 hover:bg-blue-500 text-white" onClick={() => navigate('/login')}>
-                    Sign In
+                    Sign In/Sign Up
                 </Button>
             </div>
         </div>
