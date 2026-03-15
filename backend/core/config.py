@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Hostel-Flow SaaS"
+    PROJECT_NAME: str = "Jainpro"
     MONGODB_URL: str
     DATABASE_NAME: str
     SECRET_KEY: str
@@ -12,13 +12,11 @@ class Settings(BaseSettings):
     SUPERADMIN_EMAIL: str
     SUPERADMIN_PASSWORD: str
 
-    # Email / SMTP settings for OTP delivery
-    SMTP_HOST: Optional[str] = None
-    SMTP_PORT: int = 587
-    SMTP_USER: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    MAIL_FROM: str = "noreply@hostelflow.com"
-    MAIL_FROM_NAME: str = "HostelFlow"
+    # Resend API key for OTP email delivery
+    # Get a free key at https://resend.com
+    RESEND_API_KEY: Optional[str] = None
+    MAIL_FROM: str = "jainprohostel@gmail.com"
+    MAIL_FROM_NAME: str = "Jainpro"
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
