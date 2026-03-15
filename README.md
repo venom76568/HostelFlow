@@ -2,7 +2,7 @@
 
 A comprehensive, modern Hostel Management System aimed at simplifying administrative workflows, improving student communication, and effectively managing hostel facilities. Built with a robust full-stack architecture featuring a dynamic React frontend and a fast, scalable FastAPI backend.
 
-![HostelFlow](https://via.placeholder.com/1200x300.png?text=HostelFlow+-+Modern+Hostel+Management)
+
 
 ## 🌟 Features
 
