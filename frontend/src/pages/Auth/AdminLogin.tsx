@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,24 @@ export default function AdminLogin() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isForgotLoading, setIsForgotLoading] = useState(false);
+
+  // Resend OTP countdown (59 seconds)
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const startCountdown = () => {
+    setResendCountdown(59);
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    countdownRef.current = setInterval(() => {
+      setResendCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(countdownRef.current!);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -64,6 +82,7 @@ export default function AdminLogin() {
       await axios.post(`${API_URL}/auth/request-password-reset`, { email: forgotEmail });
       toast.success("OTP sent! Check your email (or server console in dev mode).");
       setForgotStep("otp");
+      startCountdown();
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Failed to send OTP.");
     } finally {
@@ -241,9 +260,39 @@ export default function AdminLogin() {
                         <Button type="submit" disabled={isForgotLoading || otp.length !== 6} className="w-full bg-blue-600 hover:bg-blue-500 text-white">
                           {isForgotLoading ? "Verifying..." : "Verify OTP"}
                         </Button>
-                        <button type="button" onClick={() => setForgotStep("email")} className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors">
-                          <ArrowLeft className="w-3 h-3" /> Back
-                        </button>
+
+                        {/* Resend OTP countdown */}
+                        <div className="flex items-center justify-between w-full text-xs">
+                          <button type="button" onClick={() => setForgotStep("email")} className="flex items-center gap-1 text-slate-400 hover:text-white transition-colors">
+                            <ArrowLeft className="w-3 h-3" /> Back
+                          </button>
+                          {resendCountdown > 0 ? (
+                            <span className="text-slate-500">
+                              Resend in <span className="text-blue-400 font-mono font-bold">{resendCountdown}s</span>
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={isForgotLoading}
+                              onClick={async () => {
+                                setIsForgotLoading(true);
+                                try {
+                                  await axios.post(`${API_URL}/auth/request-password-reset`, { email: forgotEmail });
+                                  toast.success("New OTP sent!");
+                                  setOtp("");
+                                  startCountdown();
+                                } catch (err: any) {
+                                  toast.error(err.response?.data?.detail || "Failed to resend OTP.");
+                                } finally {
+                                  setIsForgotLoading(false);
+                                }
+                              }}
+                              className="text-blue-400 hover:text-blue-300 transition-colors font-medium disabled:opacity-50"
+                            >
+                              Resend OTP
+                            </button>
+                          )}
+                        </div>
                       </CardFooter>
                     </motion.form>
                   )}

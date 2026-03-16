@@ -138,34 +138,41 @@ def _generate_otp(length: int = 6) -> str:
 async def request_password_reset(body: PasswordResetRequestBody, db = Depends(get_database)):
     """
     Step 1: Check if email exists, generate OTP, store it, and email it.
-    Rate limit: if a non-expired token already exists for this email, reject.
+    Rate limit: only 1 OTP per 60 seconds (user can resend after 60s).
+    OTP still expires after 10 minutes.
     """
     email = body.email.strip().lower()
 
     # Check if user exists (admin or student — anyone in users collection)
     user = await db["users"].find_one({"email": email})
-    # Also allow SuperAdmin email reset (they exist only in .env, not DB)
     is_superadmin = (email == settings.SUPERADMIN_EMAIL.lower())
 
     if not user and not is_superadmin:
         # Return generic message to avoid email enumeration
         return {"message": "If this email is registered, you will receive an OTP shortly."}
 
-    # Rate limit: check for existing non-expired token
+    # Rate limit: 60-second cooldown between sends
     now = datetime.now(timezone.utc)
     existing_token = await db["password_reset_tokens"].find_one({"email": email, "expires_at": {"$gt": now}})
     if existing_token:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="An OTP was already sent. Please wait for it to expire (10 minutes) before requesting a new one."
-        )
+        created_at = existing_token.get("created_at")
+        if created_at:
+            # Make sure created_at is timezone-aware
+            if created_at.tzinfo is None:
+                created_at = created_at.replace(tzinfo=timezone.utc)
+            elapsed = (now - created_at).total_seconds()
+            if elapsed < 60:
+                wait = int(60 - elapsed)
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Please wait {wait} second(s) before requesting a new OTP."
+                )
 
-    # Generate OTP and store it
+    # Delete any previous tokens for this email, then generate a new one
+    await db["password_reset_tokens"].delete_many({"email": email})
+
     otp = _generate_otp()
     expires_at = now + timedelta(minutes=10)
-
-    # Delete any stale (expired) tokens for this email first
-    await db["password_reset_tokens"].delete_many({"email": email})
 
     await db["password_reset_tokens"].insert_one({
         "email": email,
@@ -175,7 +182,7 @@ async def request_password_reset(body: PasswordResetRequestBody, db = Depends(ge
         "used": False,
     })
 
-    # Send OTP
+    # Send OTP via Resend
     await send_otp_email(email, otp)
 
     return {"message": "If this email is registered, you will receive an OTP shortly."}
