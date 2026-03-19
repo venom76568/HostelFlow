@@ -9,6 +9,7 @@ import { BookOpen, AlertTriangle, CalendarRange, X, Check, UtensilsCrossed, KeyR
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -39,7 +40,6 @@ export default function StudentDashboard() {
   // Forms
   const [compCategory, setCompCategory] = useState("Food");
   const [compDesc, setCompDesc] = useState("");
-  const [compImage, setCompImage] = useState<File | null>(null);
   const [leaveStart, setLeaveStart] = useState("");
   const [leaveEnd, setLeaveEnd] = useState("");
   const [leaveReason, setLeaveReason] = useState("");
@@ -107,17 +107,15 @@ export default function StudentDashboard() {
     setIsProcessing("complaint");
     try {
       const token = getAuthToken();
-      const formData = new FormData();
-      formData.append("category", compCategory);
-      formData.append("description", compDesc);
-      if (compImage) formData.append("image", compImage);
-
-      await axios.post(`${API_URL}/complaints/`, formData, {
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "multipart/form-data" }
+      await axios.post(`${API_URL}/complaints/`, {
+        category: compCategory,
+        description: compDesc
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       toast.success("Complaint submitted!");
       setComplaintModalOpen(false);
-      setCompDesc(""); setCompImage(null);
+      setCompDesc("");
       fetchData();
     } catch {
       toast.error("Failed to submit complaint.");
@@ -370,13 +368,12 @@ export default function StudentDashboard() {
                                     <Label className="text-slate-300">Description</Label>
                                     <textarea value={compDesc} onChange={(e) => setCompDesc(e.target.value)} className="w-full bg-slate-900 border border-white/10 text-white p-2 rounded min-h-[100px] focus:ring-2 focus:ring-blue-400 outline-none" required />
                                 </motion.div>
-                                <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: 0.3 }} className="space-y-2">
-                                    <Label className="text-slate-300">Image (Optional)</Label>
-                                    <Input type="file" accept="image/*" onChange={(e) => setCompImage(e.target.files?.[0] || null)} className="bg-slate-900 border-white/10 text-slate-300 font-mono text-sm" />
-                                </motion.div>
-                                <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.4 }} type="submit" disabled={isProcessing === "complaint"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "complaint" ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]"}`}>
+
+
+                                <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} type="submit" disabled={isProcessing === "complaint"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "complaint" ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]"}`}>
                                     {isProcessing === "complaint" ? "Submitting..." : "Submit Ticket"}
                                 </motion.button>
+                                <ProgressBar isLoading={isProcessing === "complaint"} color="bg-blue-500" />
                             </form>
                         </div>
                     )}
@@ -404,6 +401,7 @@ export default function StudentDashboard() {
                                 <motion.button initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }} type="submit" disabled={isProcessing === "leave"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "leave" ? "bg-green-600/50 cursor-not-allowed" : "bg-green-600 hover:bg-green-500 shadow-[0_0_15px_rgba(34,197,94,0.4)]"}`}>
                                     {isProcessing === "leave" ? "Submitting..." : "Submit Request"}
                                 </motion.button>
+                                <ProgressBar isLoading={isProcessing === "leave"} color="bg-green-500" />
                             </form>
                         </div>
                     )}
@@ -425,6 +423,7 @@ export default function StudentDashboard() {
                                 <motion.button initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.3 }} type="submit" disabled={isProcessing === "password"} className={`w-full py-2 text-white font-bold rounded transition-all ${isProcessing === "password" ? "bg-blue-600/50 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.4)]"}`}>
                                     {isProcessing === "password" ? "Updating..." : "Update Password"}
                                 </motion.button>
+                                <ProgressBar isLoading={isProcessing === "password"} color="bg-blue-500" />
                             </form>
                         </div>
                     )}

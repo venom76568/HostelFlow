@@ -9,9 +9,11 @@ import StudentRegister from './pages/Auth/StudentRegister';
 import Home from './pages/Home';
 import About from './pages/About';
 import Contact from './pages/Contact';
-import AdminDashboard from './pages/Admin/Dashboard'; // Placeholder for Phase 4
-import StudentDashboard from './pages/Student/Dashboard'; // Placeholder for Phase 4
-import ProtectedRoute from './components/ProtectedRoute'; // Placeholder for Phase 3
+import AdminDashboard from './pages/Admin/Dashboard';
+import AttendancePage from './pages/Admin/AttendancePage';
+import StudentDashboard from './pages/Student/Dashboard';
+import ParentAttendance from './pages/ParentAttendance';
+import ProtectedRoute from './components/ProtectedRoute';
 function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-50 font-sans" style={{ fontFamily: '"Inter", sans-serif' }}>
@@ -33,11 +35,15 @@ function App() {
           {/* Tenant Routes */}
           <Route element={<ProtectedRoute allowedRoles={["Admin"]} />}>
             <Route path="/:slug/admin" element={<AdminDashboard />} />
+            <Route path="/:slug/admin/attendance" element={<AttendancePage />} />
           </Route>
 
           <Route element={<ProtectedRoute allowedRoles={["Student"]} />}>
             <Route path="/:slug/dashboard" element={<StudentDashboard />} />
           </Route>
+
+          {/* Public parent route */}
+          <Route path="/parent-attendance" element={<ParentAttendance />} />
         </Routes>
       </BrowserRouter>
     </div>

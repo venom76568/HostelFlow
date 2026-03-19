@@ -19,7 +19,7 @@ class UserRegisterRequest(BaseModel):
     password: str
     full_name: str
     college_code: str
-    room_number: Optional[str] = None
+    room_number: str
     role: str = "Student"
 
 class TokenResponse(BaseModel):

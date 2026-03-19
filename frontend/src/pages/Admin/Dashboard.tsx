@@ -8,11 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LayoutDashboard, AlertTriangle, CalendarRange,
   UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound, Users,
-  CheckCircle2, XCircle, Clock, TrendingUp, FileDown, Filter
+  CheckCircle2, XCircle, Clock, TrendingUp, FileDown, Filter, ClipboardCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -339,6 +340,7 @@ export default function AdminDashboard() {
           </h2>
           <nav className="space-y-2">
             <button className="w-full text-left px-4 py-2 rounded text-slate-400 hover:text-white hover:bg-white/5 transition-all">Dashboard</button>
+            <button onClick={() => navigate(`/${slug}/admin/attendance`)} className="w-full text-left px-4 py-2 rounded text-slate-400 hover:text-white hover:bg-white/5 transition-all flex items-center gap-2"><ClipboardCheck className="w-4 h-4" />Attendance</button>
             <button onClick={() => setPasswordModalOpen(true)} className="w-full text-left px-4 py-2 rounded text-slate-400 hover:text-white hover:bg-white/5 transition-all">Change Password</button>
           </nav>
         </div>
@@ -364,11 +366,14 @@ export default function AdminDashboard() {
             {/* Header */}
             <header className="flex justify-between items-center md:hidden mb-4">
                <h1 className="text-xl font-bold">Admin Panel</h1>
-               <button onClick={handleLogout} className="text-red-400 border border-red-500/30 px-3 py-1 rounded text-sm">Logout</button>
+               <div className="flex items-center gap-2">
+                  <button onClick={() => setPasswordModalOpen(true)} className="text-blue-400 border border-blue-500/30 px-2 py-1 rounded text-sm" title="Change Password"><KeyRound className="w-4 h-4" /></button>
+                  <button onClick={handleLogout} className="text-red-400 border border-red-500/30 px-3 py-1 rounded text-sm">Logout</button>
+               </div>
             </header>
 
             {/* Metric Cards */}
-            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <motion.div variants={containerVariants} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
                <motion.div variants={itemVariants} className="bg-[#1e293b]/50 backdrop-blur-xl border border-yellow-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-yellow-500/50 transition-all">
                   <div className="absolute -right-4 -top-4 w-24 h-24 bg-yellow-500/10 rounded-full blur-2xl group-hover:bg-yellow-500/20 transition-all"/>
                   <h3 className="text-slate-400 text-sm font-medium">Open Complaints</h3>
@@ -393,6 +398,14 @@ export default function AdminDashboard() {
                   <div className="mt-2 flex items-center gap-4">
                      <Users className="w-8 h-8 text-purple-400" />
                      <span className="text-4xl font-bold font-mono text-white">{students.length}</span>
+                  </div>
+               </motion.div>
+               <motion.div variants={itemVariants} onClick={() => navigate(`/${slug}/admin/attendance`)} className="bg-[#1e293b]/50 backdrop-blur-xl border border-green-500/20 p-6 rounded-xl shadow-lg relative overflow-hidden group hover:border-green-500/50 transition-all cursor-pointer flex flex-col justify-between">
+                  <div className="absolute -right-4 -top-4 w-24 h-24 bg-green-500/10 rounded-full blur-2xl group-hover:bg-green-500/20 transition-all"/>
+                  <h3 className="text-slate-400 text-sm font-medium">Attendance</h3>
+                  <div className="mt-2 flex items-center gap-4">
+                     <ClipboardCheck className="w-8 h-8 text-green-400" />
+                     <span className="text-lg font-semibold text-white">Mark Attendance →</span>
                   </div>
                </motion.div>
             </motion.div>

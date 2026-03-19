@@ -64,6 +64,7 @@ export default function Home() {
                 <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/')}>Home</Button>
                 <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/about')}>About Us</Button>
                 <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/contact')}>Contact Us</Button>
+                <Button variant="ghost" className="text-slate-300 hover:text-white" onClick={() => navigate('/parent-attendance')}>Attendance</Button>
                 <Button className="bg-blue-600 hover:bg-blue-500 text-white" onClick={() => navigate('/login')}>Sign In/Sign Up</Button>
             </div>
 
@@ -93,6 +94,7 @@ export default function Home() {
               <div className="px-6 py-3 flex flex-col gap-1">
                 <button onClick={() => { navigate('/about'); setMobileOpen(false); }} className="text-left px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium">About Us</button>
                 <button onClick={() => { navigate('/contact'); setMobileOpen(false); }} className="text-left px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium">Contact Us</button>
+                <button onClick={() => { navigate('/parent-attendance'); setMobileOpen(false); }} className="text-left px-3 py-2.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors text-sm font-medium">Attendance</button>
               </div>
             </motion.div>
           )}

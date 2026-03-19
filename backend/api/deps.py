@@ -19,7 +19,11 @@ async def get_current_user_token_data(token: str = Depends(oauth2_scheme)):
         tenant_id: str = payload.get("tenant_id")
         if user_id is None or role is None or tenant_id is None:
             raise credentials_exception
-        return {"uid": user_id, "role": role, "tenant_id": tenant_id}
+        data = {"uid": user_id, "role": role, "tenant_id": tenant_id}
+        # Parent tokens carry a student_id
+        if payload.get("student_id"):
+            data["student_id"] = payload["student_id"]
+        return data
     except JWTError:
         raise credentials_exception
 

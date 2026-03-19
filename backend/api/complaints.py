@@ -1,48 +1,38 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, Form, File
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Optional
 from db.mongodb import get_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.complaint import ComplaintDB
 from datetime import datetime, timezone
-import os
-import shutil
 
 router = APIRouter(prefix="/api/complaints", tags=["complaints"])
 
-UPLOAD_DIR = "uploads/complaints"
-os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 class ComplaintStatusUpdate(BaseModel):
     status: str
 
+
+class CreateComplaintRequest(BaseModel):
+    category: str
+    description: str
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 async def create_complaint(
-    category: str = Form(...),
-    description: str = Form(...),
-    image: Optional[UploadFile] = File(None),
+    request: CreateComplaintRequest,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db=Depends(get_database),
 ):
     if token_data.get("role") != "Student":
         raise HTTPException(status_code=403, detail="Only Students can file complaints.")
 
-    image_url = None
-    if image:
-        # Generate a unique filename
-        filename = f"{tenant_id}_{token_data.get('uid')}_{int(datetime.now().timestamp())}_{image.filename}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image.file, buffer)
-        image_url = f"/uploads/complaints/{filename}"
-
     new_complaint = ComplaintDB(
         tenant_id=tenant_id,
         student_id=token_data.get("uid"),
-        category=category,
-        description=description,
-        image_url=image_url
+        category=request.category,
+        description=request.description,
     )
 
     await db["complaints"].insert_one(new_complaint.model_dump())

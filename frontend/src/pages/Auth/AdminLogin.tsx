@@ -8,6 +8,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { ArrowLeft, Mail, ShieldCheck, KeyRound } from "lucide-react";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -190,6 +191,7 @@ export default function AdminLogin() {
                     <Button type="submit" disabled={isLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white">
                       {isLoading ? "Verifying..." : "Login"}
                     </Button>
+                    <ProgressBar isLoading={isLoading} color="bg-blue-500" />
                     <Button type="button" variant="ghost" className="w-full text-slate-400" onClick={() => navigate('/login')}>Back to System Login</Button>
                   </CardFooter>
                 </form>
@@ -233,6 +235,7 @@ export default function AdminLogin() {
                         <Button type="submit" disabled={isForgotLoading} className="w-full bg-blue-600 hover:bg-blue-500 text-white">
                           {isForgotLoading ? "Sending OTP..." : "Send OTP"}
                         </Button>
+                        <ProgressBar isLoading={isForgotLoading} color="bg-blue-500" />
                         <button type="button" onClick={resetForgotFlow} className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors">
                           <ArrowLeft className="w-3 h-3" /> Back to Login
                         </button>
@@ -260,6 +263,7 @@ export default function AdminLogin() {
                         <Button type="submit" disabled={isForgotLoading || otp.length !== 6} className="w-full bg-blue-600 hover:bg-blue-500 text-white">
                           {isForgotLoading ? "Verifying..." : "Verify OTP"}
                         </Button>
+                        <ProgressBar isLoading={isForgotLoading} color="bg-blue-500" />
 
                         {/* Resend OTP countdown */}
                         <div className="flex items-center justify-between w-full text-xs">
@@ -327,6 +331,7 @@ export default function AdminLogin() {
                         <Button type="submit" disabled={isForgotLoading} className="w-full bg-green-600 hover:bg-green-500 text-white">
                           {isForgotLoading ? "Resetting..." : "Reset Password"}
                         </Button>
+                        <ProgressBar isLoading={isForgotLoading} color="bg-green-500" />
                       </CardFooter>
                     </motion.form>
                   )}

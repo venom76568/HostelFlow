@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter }
 import { motion } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
+import { ProgressBar } from "@/components/ui/progress-bar";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -85,11 +86,12 @@ export default function StudentRegister() {
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label className="text-slate-300">Room No. (Optional)</Label>
+                    <Label className="text-slate-300">Room No.</Label>
                     <Input
                     value={roomNumber}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRoomNumber(e.target.value)}
                     className="bg-slate-800 border-slate-700 text-white focus:ring-purple-500"
+                    required
                     />
                 </div>
               </div>
@@ -108,6 +110,7 @@ export default function StudentRegister() {
               <Button type="submit" disabled={isLoading} className="w-full bg-purple-600 hover:bg-purple-500 text-white">
                 {isLoading ? "Registering..." : "Register"}
               </Button>
+              <ProgressBar isLoading={isLoading} color="bg-purple-500" />
               <div className="text-sm text-slate-500 text-center">
                   Already have an account? <span className="text-purple-400 cursor-pointer hover:underline" onClick={() => navigate('/student-login')}>Login instead</span>
               </div>
