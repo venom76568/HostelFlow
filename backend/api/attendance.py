@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List
-from db.mongodb import get_database
+from db.mongodb import get_database, get_activity_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.attendance import AttendanceDB
 from datetime import datetime, timezone, timedelta
@@ -28,6 +28,7 @@ async def get_attendance(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db=Depends(get_database),
+    adb=Depends(get_activity_database),
 ):
     """Get attendance for a given date with students sorted by room number."""
     if token_data.get("role") != "Admin":
@@ -43,7 +44,7 @@ async def get_attendance(
     students = await students_cursor.to_list(length=1000)
 
     # Get attendance records for this date
-    attendance_cursor = db["attendance"].find(
+    attendance_cursor = adb["attendance"].find(
         {"tenant_id": tenant_id, "date": date}
     )
     attendance_records = await attendance_cursor.to_list(length=1000)
@@ -80,6 +81,7 @@ async def mark_attendance(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db=Depends(get_database),
+    adb=Depends(get_activity_database),
 ):
     """Mark or update attendance for a single student on a given date."""
     if token_data.get("role") != "Admin":
@@ -89,14 +91,14 @@ async def mark_attendance(
         raise HTTPException(status_code=400, detail="Status must be 'Present' or 'Absent'.")
 
     # Upsert: update if exists, insert if not
-    existing = await db["attendance"].find_one({
+    existing = await adb["attendance"].find_one({
         "tenant_id": tenant_id,
         "student_id": request.student_id,
         "date": request.date,
     })
 
     if existing:
-        await db["attendance"].update_one(
+        await adb["attendance"].update_one(
             {"_id": existing["_id"]},
             {"$set": {"status": request.status, "marked_by": token_data["uid"]}}
         )
@@ -108,7 +110,7 @@ async def mark_attendance(
             status=request.status,
             marked_by=token_data["uid"],
         )
-        await db["attendance"].insert_one(record.model_dump())
+        await adb["attendance"].insert_one(record.model_dump())
 
     return {"message": f"Attendance marked as {request.status}."}
 
@@ -119,6 +121,7 @@ async def mark_attendance_bulk(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db=Depends(get_database),
+    adb=Depends(get_activity_database),
 ):
     """Mark attendance for multiple students at once."""
     if token_data.get("role") != "Admin":
@@ -127,15 +130,15 @@ async def mark_attendance_bulk(
     for record in request.records:
         if record.status not in ["Present", "Absent"]:
             continue
-
-        existing = await db["attendance"].find_one({
+            
+        existing = await adb["attendance"].find_one({
             "tenant_id": tenant_id,
             "student_id": record.student_id,
             "date": request.date,
         })
 
         if existing:
-            await db["attendance"].update_one(
+            await adb["attendance"].update_one(
                 {"_id": existing["_id"]},
                 {"$set": {"status": record.status, "marked_by": token_data["uid"]}}
             )
@@ -147,7 +150,7 @@ async def mark_attendance_bulk(
                 status=record.status,
                 marked_by=token_data["uid"],
             )
-            await db["attendance"].insert_one(att.model_dump())
+            await adb["attendance"].insert_one(att.model_dump())
 
     return {"message": f"Bulk attendance marked for {len(request.records)} students."}
 
@@ -158,6 +161,7 @@ async def export_attendance(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db=Depends(get_database),
+    adb=Depends(get_activity_database),
 ):
     """Export attendance as CSV."""
     if token_data.get("role") != "Admin":
@@ -171,7 +175,7 @@ async def export_attendance(
     ).sort("room_number", 1)
     students = await students_cursor.to_list(length=1000)
 
-    attendance_cursor = db["attendance"].find(
+    attendance_cursor = adb["attendance"].find(
         {"tenant_id": tenant_id, "date": date}
     )
     attendance_records = await attendance_cursor.to_list(length=1000)
@@ -204,6 +208,7 @@ async def get_student_attendance_history(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db=Depends(get_database),
+    adb=Depends(get_activity_database),
 ):
     """Get attendance history for a student (past N days)."""
     # Allow Admin or Parent role
@@ -217,7 +222,7 @@ async def get_student_attendance_history(
 
     start_date = (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d")
 
-    cursor = db["attendance"].find({
+    cursor = adb["attendance"].find({
         "tenant_id": tenant_id,
         "student_id": student_id,
         "date": {"$gte": start_date},

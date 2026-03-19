@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 from typing import List, Optional
-from db.mongodb import get_database
+from db.mongodb import get_database, get_activity_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.complaint import ComplaintDB
 from datetime import datetime, timezone
@@ -24,6 +24,7 @@ async def create_complaint(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db=Depends(get_database),
+    adb=Depends(get_activity_database)
 ):
     if token_data.get("role") != "Student":
         raise HTTPException(status_code=403, detail="Only Students can file complaints.")
@@ -35,14 +36,15 @@ async def create_complaint(
         description=request.description,
     )
 
-    await db["complaints"].insert_one(new_complaint.model_dump())
+    await adb["complaints"].insert_one(new_complaint.model_dump())
     return {"message": "Complaint submitted successfully.", "complaint_id": new_complaint.id}
 
 @router.get("/")
 async def list_complaints(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     query = {"tenant_id": tenant_id}
     
@@ -50,7 +52,7 @@ async def list_complaints(
     if token_data.get("role") == "Student":
         query["student_id"] = token_data.get("uid")
         
-    cursor = db["complaints"].find(query).sort("created_at", -1)
+    cursor = adb["complaints"].find(query).sort("created_at", -1)
     raw_complaints = await cursor.to_list(length=1000)
     
     current_time = datetime.now(timezone.utc)
@@ -84,7 +86,8 @@ async def update_complaint_status(
     request: ComplaintStatusUpdate,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Admin":
          raise HTTPException(status_code=403, detail="Only Admins can update complaint status.")
@@ -92,7 +95,7 @@ async def update_complaint_status(
     if request.status not in ["Pending", "In_Progress", "Resolved"]:
         raise HTTPException(status_code=400, detail="Invalid status.")
 
-    result = await db["complaints"].update_one(
+    result = await adb["complaints"].update_one(
         {"id": complaint_id, "tenant_id": tenant_id},
         {"$set": {
             "status": request.status,

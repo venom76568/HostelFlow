@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from typing import List, Optional
-from db.mongodb import get_database
+from db.mongodb import get_database, get_activity_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.meal import MealDB, MealResponseDB
 from datetime import datetime, timezone
@@ -26,16 +26,17 @@ async def create_meal(
     request: MealCreateRequest, 
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Admin":
          raise HTTPException(status_code=403, detail="Only Admins can create meals.")
     
     # Check if a meal already exists for this date in this tenant
-    existing = await db["meals"].find_one({"tenant_id": tenant_id, "date": request.date})
+    existing = await adb["meals"].find_one({"tenant_id": tenant_id, "date": request.date})
     if existing:
          raise HTTPException(status_code=400, detail="A menu for this date already exists.")
-
+         
     new_meal = MealDB(
         tenant_id=tenant_id,
         date=request.date,
@@ -44,16 +45,17 @@ async def create_meal(
         dinner=request.dinner
     )
 
-    await db["meals"].insert_one(new_meal.model_dump())
+    await adb["meals"].insert_one(new_meal.model_dump())
     return {"message": "Meal menu created successfully.", "meal_id": new_meal.id}
 
 @router.get("/")
 async def list_meals(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
-    cursor = db["meals"].find({"tenant_id": tenant_id}).sort("date", -1).limit(10)
+    cursor = adb["meals"].find({"tenant_id": tenant_id}).sort("date", -1).limit(10)
     meals = await cursor.to_list(length=10)
 
     for meal in meals:
@@ -67,12 +69,13 @@ async def update_meal(
     request: MealCreateRequest,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Admin":
          raise HTTPException(status_code=403, detail="Only Admins can edit meals.")
          
-    result = await db["meals"].update_one(
+    result = await adb["meals"].update_one(
         {"id": meal_id, "tenant_id": tenant_id},
         {"$set": {
             "date": request.date,
@@ -92,17 +95,18 @@ async def delete_meal(
     meal_id: str,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Admin":
          raise HTTPException(status_code=403, detail="Only Admins can delete meals.")
          
-    result = await db["meals"].delete_one({"id": meal_id, "tenant_id": tenant_id})
+    result = await adb["meals"].delete_one({"id": meal_id, "tenant_id": tenant_id})
     if result.deleted_count == 0:
          raise HTTPException(status_code=404, detail="Meal not found.")
          
     # Optional cascading delete of responses
-    await db["meal_responses"].delete_many({"meal_id": meal_id, "tenant_id": tenant_id})
+    await adb["meal_responses"].delete_many({"meal_id": meal_id, "tenant_id": tenant_id})
     
     return {"message": "Meal deleted successfully."}
 
@@ -110,13 +114,13 @@ async def delete_meal(
 async def get_my_responses(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Student":
         return []
     
     user_id = token_data.get("uid")
-    cursor = db["meal_responses"].find({"user_id": user_id, "tenant_id": tenant_id})
+    cursor = adb["meal_responses"].find({"user_id": user_id, "tenant_id": tenant_id})
     responses = await cursor.to_list(length=100)
     for r in responses:
         r["_id"] = str(r["_id"])
@@ -128,7 +132,7 @@ async def respond_to_meal(
     request: MealRespondRequest,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Student":
         raise HTTPException(status_code=403, detail="Only Students can respond to meals.")
@@ -139,7 +143,7 @@ async def respond_to_meal(
     if request.meal_type not in ["breakfast", "lunch", "dinner"]:
         raise HTTPException(status_code=400, detail="Invalid meal type.")
 
-    meal = await db["meals"].find_one({"id": meal_id, "tenant_id": tenant_id})
+    meal = await adb["meals"].find_one({"id": meal_id, "tenant_id": tenant_id})
     if not meal:
         raise HTTPException(status_code=404, detail="Meal not found.")
 
@@ -155,12 +159,12 @@ async def respond_to_meal(
     user_id = token_data.get("uid")
     status_field = f"{request.meal_type}_status"
 
-    response_doc = await db["meal_responses"].find_one({"meal_id": meal_id, "user_id": user_id, "tenant_id": tenant_id})
+    response_doc = await adb["meal_responses"].find_one({"meal_id": meal_id, "user_id": user_id, "tenant_id": tenant_id})
     if response_doc:
          if response_doc.get(status_field) == request.status:
              return {"message": f"Response is already recorded as {request.status}."}
          
-         await db["meal_responses"].update_one(
+         await adb["meal_responses"].update_one(
              {"_id": response_doc["_id"]},
              {"$set": {status_field: request.status, "updated_at": datetime.now(timezone.utc)}}
          )
@@ -171,7 +175,7 @@ async def respond_to_meal(
              user_id=user_id,
              **{status_field: request.status}
         )
-        await db["meal_responses"].insert_one(new_resp.model_dump())
+        await adb["meal_responses"].insert_one(new_resp.model_dump())
 
     return {"message": f"Response recorded as {request.status}."}
 
@@ -180,12 +184,13 @@ async def export_meal_responses(
     meal_id: str,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Admin":
          raise HTTPException(status_code=403, detail="Only Admins can export responses.")
     
-    meal = await db["meals"].find_one({"id": meal_id, "tenant_id": tenant_id})
+    meal = await adb["meals"].find_one({"id": meal_id, "tenant_id": tenant_id})
     if not meal:
          raise HTTPException(status_code=404, detail="Meal not found.")
          
@@ -197,7 +202,7 @@ async def export_meal_responses(
     if current_date < meal_date:
         raise HTTPException(status_code=400, detail="Cannot export responses until the explicitly voting window has closed.")
 
-    responses = await db["meal_responses"].find({"meal_id": meal_id, "tenant_id": tenant_id}).to_list(length=1000)
+    responses = await adb["meal_responses"].find({"meal_id": meal_id, "tenant_id": tenant_id}).to_list(length=1000)
 
     # Convert to CSV
     output = io.StringIO()

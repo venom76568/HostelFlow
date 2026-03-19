@@ -3,7 +3,7 @@ import io
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from db.mongodb import get_database
+from db.mongodb import get_database, get_activity_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.leave import LeaveDB
 from datetime import datetime, timezone
@@ -24,7 +24,8 @@ async def request_leave(
     request: LeaveCreateRequest,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Student":
         raise HTTPException(status_code=403, detail="Only Students can request leaves.")
@@ -37,7 +38,7 @@ async def request_leave(
         reason=request.reason
     )
 
-    await db["leaves"].insert_one(new_leave.model_dump())
+    await adb["leaves"].insert_one(new_leave.model_dump())
     return {"message": "Leave requested successfully.", "leave_id": new_leave.id}
 
 @router.get("/")
@@ -45,6 +46,7 @@ async def list_leaves(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db = Depends(get_database),
+    adb = Depends(get_activity_database),
     status_filter: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -68,7 +70,7 @@ async def list_leaves(
         else:
             query["start_date"] = {"$lte": end_date}
 
-    cursor = db["leaves"].find(query).sort("start_date", -1)
+    cursor = adb["leaves"].find(query).sort("start_date", -1)
     leaves = await cursor.to_list(length=500)
     for leave in leaves:
         leave["_id"] = str(leave["_id"])
@@ -90,6 +92,7 @@ async def export_leaves_csv(
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
     db = Depends(get_database),
+    adb = Depends(get_activity_database),
     status_filter: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -110,7 +113,7 @@ async def export_leaves_csv(
         else:
             query["start_date"] = {"$lte": end_date}
 
-    cursor = db["leaves"].find(query).sort("start_date", -1)
+    cursor = adb["leaves"].find(query).sort("start_date", -1)
     leaves = await cursor.to_list(length=5000)
 
     # Enrich with student names
@@ -149,7 +152,8 @@ async def update_leave_status(
     request: LeaveStatusUpdate,
     token_data: dict = Depends(get_current_user_token_data),
     tenant_id: str = Depends(get_current_tenant),
-    db = Depends(get_database)
+    db = Depends(get_database),
+    adb = Depends(get_activity_database)
 ):
     if token_data.get("role") != "Admin":
          raise HTTPException(status_code=403, detail="Only Admins can update leave status.")
@@ -157,7 +161,7 @@ async def update_leave_status(
     if request.status not in ["Pending", "Approved", "Rejected"]:
         raise HTTPException(status_code=400, detail="Invalid status.")
 
-    result = await db["leaves"].update_one(
+    result = await adb["leaves"].update_one(
         {"id": leave_id, "tenant_id": tenant_id},
         {"$set": {"status": request.status}}
     )

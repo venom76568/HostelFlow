@@ -4,6 +4,7 @@ from typing import Optional
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Jainpro"
     MONGODB_URL: str
+    SECONDARY_MONGODB_URL: Optional[str] = None
     DATABASE_NAME: str
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
