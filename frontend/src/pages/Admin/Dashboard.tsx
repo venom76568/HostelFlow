@@ -13,7 +13,6 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
-import { ProgressBar } from "@/components/ui/progress-bar";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 

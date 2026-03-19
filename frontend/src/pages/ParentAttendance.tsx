@@ -27,7 +27,7 @@ export default function ParentAttendance() {
 
   // After login
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [parentToken, setParentToken] = useState("");
+
   const [studentName, setStudentName] = useState("");
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [totalPresent, setTotalPresent] = useState(0);
@@ -44,7 +44,6 @@ export default function ParentAttendance() {
         password,
       });
       const { access_token, student_name } = res.data;
-      setParentToken(access_token);
       setStudentName(student_name);
       setIsLoggedIn(true);
       toast.success(`Welcome! Viewing attendance for ${student_name}`);
@@ -67,7 +66,6 @@ export default function ParentAttendance() {
 
   const handleLogout = () => {
     setIsLoggedIn(false);
-    setParentToken("");
     setStudentName("");
     setRecords([]);
     setUsername("");
