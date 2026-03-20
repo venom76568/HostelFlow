@@ -219,7 +219,7 @@ export default function StudentDashboard() {
                <Card className="bg-slate-800/20 backdrop-blur-xl border border-orange-500/30 cursor-pointer shadow-[0_0_15px_rgba(249,115,22,0.1)] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all h-full" onClick={() => setAttendanceModalOpen(true)}>
                   <CardContent className="p-3 flex flex-col items-center justify-center gap-2 text-orange-400">
                       <ClipboardList className="w-7 h-7" />
-                      <span className="font-semibold text-[11px] text-center">Presence</span>
+                      <span className="font-semibold text-[11px] text-center">Attendence</span>
                   </CardContent>
                </Card>
             </motion.div>
