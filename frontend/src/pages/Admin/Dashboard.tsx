@@ -244,14 +244,14 @@ export default function AdminDashboard() {
   };
 
   const handleExportStudents = () => {
-    const headers = ["Student ID", "Name", "Email", "Room", "Contact"];
-    const rows = students.map(s => [s.student_id || s.id, s.full_name, s.email, s.room_number || "N/A", s.contact || "N/A"]);
+    const headers = ["Student ID", "Name", "Email", "Room"];
+    const rows = students.map(s => [s.student_id , s.full_name, s.email, s.room_number || "N/A",]);
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.href = url; link.setAttribute('download', 'students_roster.csv');
+    link.href = url; link.setAttribute('download', 'students_list.csv');
     document.body.appendChild(link); link.click(); link.remove();
   };
 
