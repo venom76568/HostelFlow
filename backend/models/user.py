@@ -14,3 +14,4 @@ class UserDB(BaseModel):
     role: str  # "Admin" or "Student"
     contact: Optional[str] = None
     room_number: Optional[str] = None
+    student_id: Optional[str] = None

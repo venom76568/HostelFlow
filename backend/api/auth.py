@@ -6,6 +6,7 @@ from models.user import UserDB
 from core.security import verify_password, get_password_hash, create_access_token
 from core.config import settings
 from core.email import send_otp_email
+from core.utils import generate_student_id
 from api.deps import get_current_user_token_data
 from typing import Optional
 from datetime import datetime, timezone, timedelta
@@ -40,17 +41,27 @@ async def register(request: UserRegisterRequest, db = Depends(get_database)):
     if existing_user:
          raise HTTPException(status_code=400, detail="Email already registered.")
 
+    student_id = None
+    if request.role.lower() == "student":
+        student_id = generate_student_id(tenant.get("name", "UNKN"))
+
     new_user = UserDB(
         tenant_id=tenant["id"],
         full_name=request.full_name,
         email=request.email,
         password_hash=get_password_hash(request.password),
         role=request.role,
-        room_number=request.room_number
+        room_number=request.room_number,
+        student_id=student_id
     )
 
     await db["users"].insert_one(new_user.model_dump())
-    return {"message": "User registered successfully."}
+    
+    response_data = {"message": "User registered successfully."}
+    if student_id:
+        response_data["student_id"] = student_id
+        
+    return response_data
 
 @router.post("/login", response_model=TokenResponse)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(get_database)):
