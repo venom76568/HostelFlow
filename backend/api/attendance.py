@@ -212,10 +212,14 @@ async def get_student_attendance_history(
 ):
     """Get attendance history for a student (past N days)."""
     # Allow Admin or Parent role
-    if token_data.get("role") not in ["Admin", "Parent"]:
+    if token_data.get("role") not in ["Admin", "Parent", "Student"]:
         raise HTTPException(status_code=403, detail="Access denied.")
 
-    # For Parent role, verify they can only see their linked student
+    # For Parent or Student role, verify they can only see their linked/own student_id
+    if token_data.get("role") == "Student":
+        if token_data.get("uid") != student_id:
+             raise HTTPException(status_code=403, detail="You can only view your own attendance.")
+             
     if token_data.get("role") == "Parent":
         if token_data.get("student_id") != student_id:
             raise HTTPException(status_code=403, detail="You can only view your child's attendance.")

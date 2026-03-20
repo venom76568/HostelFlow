@@ -5,11 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookOpen, AlertTriangle, CalendarRange, X, Check, UtensilsCrossed, KeyRound } from "lucide-react";
+import { BookOpen, AlertTriangle, CalendarRange, X, Check, UtensilsCrossed, KeyRound, ClipboardList } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { parseJwt } from "@/lib/auth";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -27,8 +28,10 @@ export default function StudentDashboard() {
   const [myResponses, setMyResponses] = useState<Record<string, MealResponse>>({});
   const [myComplaints, setMyComplaints] = useState<Complaint[]>([]);
   const [myLeaves, setMyLeaves] = useState<Leave[]>([]);
+  const [myAttendance, setMyAttendance] = useState<{date: string, status: string}[]>([]);
   
   // Modals state
+  const [isAttendanceModalOpen, setAttendanceModalOpen] = useState(false);
   const [isComplaintModalOpen, setComplaintModalOpen] = useState(false);
   const [isLeaveModalOpen, setLeaveModalOpen] = useState(false);
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
@@ -65,6 +68,13 @@ export default function StudentDashboard() {
       const respMap: Record<string, MealResponse> = {};
       rRes.data.forEach((r: MealResponse) => respMap[r.meal_id] = r);
       setMyResponses(respMap);
+
+      // Fetch attendance
+      const decoded = parseJwt(token || "");
+      if (decoded?.uid) {
+        const aRes = await axios.get(`${API_URL}/attendance/student/${decoded.uid}`, { headers });
+        setMyAttendance(aRes.data.records);
+      }
     } catch (err: any) {
        if (err.response?.status === 401 || err.response?.status === 403) handleLogout();
     }
@@ -188,20 +198,28 @@ export default function StudentDashboard() {
         </div>
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-3 gap-3">
             <motion.div whileHover={{ y: -5 }} whileTap={{ scale: 0.95 }}>
-               <Card className="bg-slate-800/20 backdrop-blur-xl border border-blue-500/30 cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all" onClick={() => setComplaintModalOpen(true)}>
-                  <CardContent className="p-4 flex flex-col items-center justify-center gap-2 text-blue-400">
-                      <AlertTriangle className="w-8 h-8" />
-                      <span className="font-semibold text-sm">File Complaint</span>
+               <Card className="bg-slate-800/20 backdrop-blur-xl border border-blue-500/30 cursor-pointer shadow-[0_0_15px_rgba(59,130,246,0.1)] hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all h-full" onClick={() => setComplaintModalOpen(true)}>
+                  <CardContent className="p-3 flex flex-col items-center justify-center gap-2 text-blue-400">
+                      <AlertTriangle className="w-7 h-7" />
+                      <span className="font-semibold text-[11px] text-center">Ticket</span>
                   </CardContent>
                </Card>
             </motion.div>
             <motion.div whileHover={{ y: -5 }} whileTap={{ scale: 0.95 }}>
-               <Card className="bg-slate-800/20 backdrop-blur-xl border border-green-500/30 cursor-pointer shadow-[0_0_15px_rgba(34,197,94,0.1)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all" onClick={() => setLeaveModalOpen(true)}>
-                  <CardContent className="p-4 flex flex-col items-center justify-center gap-2 text-green-400">
-                      <CalendarRange className="w-8 h-8" />
-                      <span className="font-semibold text-sm">Request Leave</span>
+               <Card className="bg-slate-800/20 backdrop-blur-xl border border-green-500/30 cursor-pointer shadow-[0_0_15px_rgba(34,197,94,0.1)] hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all h-full" onClick={() => setLeaveModalOpen(true)}>
+                  <CardContent className="p-3 flex flex-col items-center justify-center gap-2 text-green-400">
+                      <CalendarRange className="w-7 h-7" />
+                      <span className="font-semibold text-[11px] text-center">Leave</span>
+                  </CardContent>
+               </Card>
+            </motion.div>
+            <motion.div whileHover={{ y: -5 }} whileTap={{ scale: 0.95 }}>
+               <Card className="bg-slate-800/20 backdrop-blur-xl border border-orange-500/30 cursor-pointer shadow-[0_0_15px_rgba(249,115,22,0.1)] hover:shadow-[0_0_20px_rgba(249,115,22,0.3)] transition-all h-full" onClick={() => setAttendanceModalOpen(true)}>
+                  <CardContent className="p-3 flex flex-col items-center justify-center gap-2 text-orange-400">
+                      <ClipboardList className="w-7 h-7" />
+                      <span className="font-semibold text-[11px] text-center">Presence</span>
                   </CardContent>
                </Card>
             </motion.div>
@@ -339,7 +357,7 @@ export default function StudentDashboard() {
 
       {/* Modals via Framer Motion */}
       <AnimatePresence>
-        {(isComplaintModalOpen || isLeaveModalOpen || isPasswordModalOpen || selectedComplaint || selectedLeave) && (
+        {(isComplaintModalOpen || isLeaveModalOpen || isPasswordModalOpen || isAttendanceModalOpen || selectedComplaint || selectedLeave) && (
             <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/60 backdrop-blur-sm">
                 <motion.div 
                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -347,6 +365,25 @@ export default function StudentDashboard() {
                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
                    className="w-full max-w-md bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
                 >
+                    {isAttendanceModalOpen && (
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                                <h3 className="text-xl font-bold flex items-center gap-2 text-orange-400"><ClipboardList className="w-5 h-5"/> Attendance History</h3>
+                                <button onClick={() => setAttendanceModalOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+                            </div>
+                            <div className="space-y-3">
+                                {myAttendance.length === 0 && <div className="text-center py-10 text-slate-500 italic">No attendance marked yet.</div>}
+                                {myAttendance.map((record, idx) => (
+                                    <div key={idx} className="flex items-center justify-between bg-black/20 p-3 rounded-lg border border-white/5">
+                                        <span className="font-mono text-slate-300">{record.date}</span>
+                                        <span className={`text-xs font-bold px-3 py-1 rounded border ${
+                                            record.status === 'Present' ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-500 border-red-500/30'
+                                        }`}>{record.status}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     {isComplaintModalOpen && (
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6">
