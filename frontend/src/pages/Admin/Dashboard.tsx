@@ -20,7 +20,7 @@ type Meal = { id: string; date: string; breakfast: string; lunch: string; dinner
 type Complaint = { id: string; student_name: string; category: string; description: string; status: string; image_url: string; created_at: string; };
 type Leave = { id: string; student_name: string; start_date: string; end_date: string; reason: string; status: string; created_at: string; };
 type Notice = { id: string; title: string; content: string; created_at: string; };
-type Student = { id: string; full_name: string; email: string; room_number: string; contact: string; };
+type Student = { id: string; student_id?: string; full_name: string; email: string; room_number: string; contact: string; };
 
 export default function AdminDashboard() {
   const { slug } = useParams();
@@ -244,9 +244,10 @@ export default function AdminDashboard() {
   };
 
   const handleExportStudents = () => {
-    const headers = ["ID", "Name", "Email", "Room", "Contact"];
-    const rows = students.map(s => [s.id, s.full_name, s.email, s.room_number || "N/A", s.contact || "N/A"]);
+    const headers = ["Student ID", "Name", "Email", "Room", "Contact"];
+    const rows = students.map(s => [s.student_id || s.id, s.full_name, s.email, s.room_number || "N/A", s.contact || "N/A"]);
     const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -849,17 +850,20 @@ export default function AdminDashboard() {
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-slate-400 uppercase bg-black/20 sticky top-0">
                                 <tr>
+                                    <th className="px-6 py-3">Student ID</th>
                                     <th className="px-6 py-3">Student Name</th>
                                     <th className="px-6 py-3">Email</th>
                                     <th className="px-6 py-3">Room / Contact</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {students.length === 0 && <tr><td colSpan={3} className="p-4 text-center text-slate-500">No students registered yet.</td></tr>}
+                                {students.length === 0 && <tr><td colSpan={4} className="p-4 text-center text-slate-500">No students registered yet.</td></tr>}
                                 {students.map(s => (
                                     <tr key={s.id} className="border-b border-white/5 hover:bg-white/5 transition-colors">
+                                        <td className="px-6 py-3 font-mono text-xs text-slate-300">{s.student_id || "N/A"}</td>
                                         <td className="px-6 py-3 font-medium text-slate-200">{s.full_name}</td>
                                         <td className="px-6 py-3 text-slate-400">{s.email}</td>
+
                                         <td className="px-6 py-3 text-slate-400 text-xs">
                                             {s.room_number ? <div>Room: {s.room_number}</div> : null}
                                             {s.contact ? <div>Ph: {s.contact}</div> : null}
