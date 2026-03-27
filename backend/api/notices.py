@@ -5,6 +5,7 @@ from db.mongodb import get_database, get_activity_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.notice import NoticeDB
 from datetime import datetime, timezone
+from api.notifications import send_push_to_role
 
 router = APIRouter(prefix="/api/notices", tags=["notices"])
 
@@ -30,6 +31,16 @@ async def create_notice(
     )
 
     await adb["notices"].insert_one(new_notice.model_dump())
+    
+    # Notify all students in this tenant
+    await send_push_to_role(
+        tenant_id=tenant_id,
+        role="Student",
+        title="📢 New Announcement",
+        body=f"{request.title}",
+        data={"type": "notice", "notice_id": new_notice.id, "tag": "new-notice"}
+    )
+    
     return {"message": "Notice created successfully.", "notice_id": new_notice.id}
 
 @router.get("/")
@@ -85,4 +96,14 @@ async def update_notice(
     
     if result.matched_count == 0:
          raise HTTPException(status_code=404, detail="Notice not found.")
+
+    # Notify all students in this tenant about update
+    await send_push_to_role(
+        tenant_id=tenant_id,
+        role="Student",
+        title="📝 Announcement Updated",
+        body=f"{request.title}",
+        data={"type": "notice", "notice_id": notice_id, "tag": f"update-notice-{notice_id}"}
+    )
+
     return {"message": "Notice updated successfully."}

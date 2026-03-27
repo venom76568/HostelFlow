@@ -5,17 +5,18 @@
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.12.0/firebase-messaging-compat.js');
 
-// Firebase config is injected at build time via the SW registration.
-// We read it from a global set during registration, or fall back to defaults.
-// NOTE: Replace these placeholder values with your actual Firebase project config.
-firebase.initializeApp({
-  apiKey:            self.__FIREBASE_API_KEY__            || "PLACEHOLDER_API_KEY",
-  authDomain:        self.__FIREBASE_AUTH_DOMAIN__        || "PLACEHOLDER.firebaseapp.com",
-  projectId:         self.__FIREBASE_PROJECT_ID__         || "PLACEHOLDER_PROJECT_ID",
-  storageBucket:     self.__FIREBASE_STORAGE_BUCKET__     || "PLACEHOLDER.appspot.com",
-  messagingSenderId: self.__FIREBASE_MESSAGING_SENDER_ID__ || "PLACEHOLDER_SENDER_ID",
-  appId:             self.__FIREBASE_APP_ID__             || "PLACEHOLDER_APP_ID",
-});
+// Parse config from query params (passed during registration in notifications.ts)
+const urlParams = new URL(self.location).searchParams;
+const firebaseConfig = {
+  apiKey:            urlParams.get("apiKey")            || "PLACEHOLDER_API_KEY",
+  authDomain:        urlParams.get("authDomain")        || "PLACEHOLDER.firebaseapp.com",
+  projectId:         urlParams.get("projectId")         || "PLACEHOLDER_PROJECT_ID",
+  storageBucket:     urlParams.get("storageBucket")     || "PLACEHOLDER.appspot.com",
+  messagingSenderId: urlParams.get("messagingSenderId") || "PLACEHOLDER_SENDER_ID",
+  appId:             urlParams.get("appId")             || "PLACEHOLDER_APP_ID",
+};
+
+firebase.initializeApp(firebaseConfig);
 
 const messaging = firebase.messaging();
 

@@ -33,11 +33,20 @@ export const requestNotificationPermission = async (): Promise<void> => {
     const permission = await Notification.requestPermission();
     if (permission !== "granted") return;
 
-    // Register the FCM service worker manually (must be at root scope)
+    // Register the FCM service worker (pass config via query params for background init)
     let swRegistration: ServiceWorkerRegistration | undefined;
     if ("serviceWorker" in navigator) {
+      const configParams = new URLSearchParams({
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+      }).toString();
+
       swRegistration = await navigator.serviceWorker.register(
-        "/firebase-messaging-sw.js",
+        `/firebase-messaging-sw.js?${configParams}`,
         { scope: "/" }
       );
     }
@@ -66,7 +75,7 @@ export const requestNotificationPermission = async (): Promise<void> => {
     });
   } catch (err) {
     // Non-fatal: notifications are a nice-to-have, not a hard requirement
-    console.warn("[HostelFlow] Could not register for push notifications:", err);
+    console.warn("[Jainpro] Could not register for push notifications:", err);
   }
 };
 
@@ -84,7 +93,7 @@ export const onForegroundMessage = async (
 
   const unsubscribe = onMessage(messaging, (payload) => {
     callback({
-      title: payload.notification?.title || "HostelFlow",
+      title: payload.notification?.title || "Jainpro",
       body: payload.notification?.body || "You have a new update.",
       data: (payload.data as Record<string, string>) || {},
     });

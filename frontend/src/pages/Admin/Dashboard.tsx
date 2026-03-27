@@ -109,6 +109,8 @@ export default function AdminDashboard() {
     let unsub: (() => void) | undefined;
     onForegroundMessage((payload) => {
       toast(`🔔 ${payload.title}: ${payload.body}`, { duration: 6000 });
+      // Real-time refresh: fetch fresh data when a notification arrives
+      fetchData();
     }).then(fn => { unsub = fn; });
     return () => { if (unsub) unsub(); };
   }, []);
