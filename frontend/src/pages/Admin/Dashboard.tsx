@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LayoutDashboard, AlertTriangle, CalendarRange,
   UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound, Users,
-  CheckCircle2, XCircle, Clock, TrendingUp, FileDown, Filter, ClipboardCheck, Bell, BellOff
+  CheckCircle2, XCircle, Clock, TrendingUp, FileDown, Filter, ClipboardCheck, Bell, BellOff, RefreshCw
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -112,7 +112,14 @@ export default function AdminDashboard() {
       // Real-time refresh: fetch fresh data when a notification arrives
       fetchData();
     }).then(fn => { unsub = fn; });
-    return () => { if (unsub) unsub(); };
+
+    // Polling Fallback (Every 15 seconds)
+    const pollId = setInterval(fetchData, 15000);
+
+    return () => { 
+      if (unsub) unsub(); 
+      clearInterval(pollId);
+    };
   }, []);
 
   const handleComplaintUpdate = async (id: string, newStatus: string) => {
@@ -371,20 +378,33 @@ export default function AdminDashboard() {
           <div className="bg-green-500/10 border border-green-500/20 p-2 rounded flex items-center gap-2 text-xs text-green-400">
              <ShieldCheck className="w-4 h-4"/> Subscription: ACTIVE
           </div>
-          {/* Notification Toggle */}
-          <button
-            onClick={() => {
-              const next = !notifEnabled;
-              setNotifEnabled(next);
-              setNotificationsEnabled(next);
-              if (next) requestNotificationPermission();
-              toast(next ? "🔔 Notifications enabled" : "🔕 Notifications disabled");
-            }}
-            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${notifEnabled ? "text-blue-400 hover:text-blue-300" : "text-slate-500 hover:text-slate-400"}`}
-          >
-            {notifEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
-            {notifEnabled ? "Notifications On" : "Notifications Off"}
-          </button>
+          {/* Notification Toggle & Refresh */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                const next = !notifEnabled;
+                setNotifEnabled(next);
+                setNotificationsEnabled(next);
+                if (next) requestNotificationPermission();
+                toast(next ? "🔔 Notifications enabled" : "🔕 Notifications disabled");
+              }}
+              className={`flex-1 flex items-center justify-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${notifEnabled ? "text-blue-400 hover:text-blue-300 bg-blue-500/5" : "text-slate-500 hover:text-slate-400 bg-slate-500/5"}`}
+              title="Toggle Notifications"
+            >
+              {notifEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+              {notifEnabled ? "On" : "Off"}
+            </button>
+            <button
+              onClick={() => {
+                fetchData();
+                toast.success("Dashboard updated", { id: "admin-refresh" });
+              }}
+              className="px-2 py-1.5 rounded bg-slate-800 text-slate-400 hover:text-white transition-colors"
+              title="Refresh Data"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </div>
           <button onClick={handleLogout} className="w-full text-left px-2 py-1 text-xs text-red-400 hover:text-red-300">Logout</button>
         </div>
       </aside>
@@ -397,7 +417,11 @@ export default function AdminDashboard() {
             <header className="flex justify-between items-center md:hidden mb-4">
                <h1 className="text-xl font-bold">Admin Panel</h1>
                <div className="flex items-center gap-2">
-                  <button onClick={() => setPasswordModalOpen(true)} className="text-blue-400 border border-blue-500/30 px-2 py-1 rounded text-sm" title="Change Password"><KeyRound className="w-4 h-4" /></button>
+                  <button onClick={() => {
+                    fetchData();
+                    toast.success("Updated", { id: "mobile-refresh" });
+                  }} className="text-slate-400 border border-white/10 p-2 rounded text-sm" title="Refresh Data"><RefreshCw className="w-4 h-4" /></button>
+                  <button onClick={() => setPasswordModalOpen(true)} className="text-blue-400 border border-blue-500/30 p-2 rounded text-sm" title="Change Password"><KeyRound className="w-4 h-4" /></button>
                   <button onClick={handleLogout} className="text-red-400 border border-red-500/30 px-3 py-1 rounded text-sm">Logout</button>
                </div>
             </header>

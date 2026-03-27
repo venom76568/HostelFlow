@@ -17,6 +17,7 @@ from core.config import settings
 import httpx
 import json
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -53,11 +54,17 @@ async def save_fcm_token(
 
 def _is_fcm_configured() -> bool:
     """Returns True only when all required Firebase credentials are present."""
-    return bool(
+    configured = bool(
         settings.FIREBASE_PROJECT_ID
         and settings.FIREBASE_CLIENT_EMAIL
         and settings.FIREBASE_PRIVATE_KEY
     )
+    if not configured:
+        logger.warning(
+            f"[Jainpro] FCM Missing Config: ProjID={bool(settings.FIREBASE_PROJECT_ID)}, "
+            f"Email={bool(settings.FIREBASE_CLIENT_EMAIL)}, Key={bool(settings.FIREBASE_PRIVATE_KEY)}"
+        )
+    return configured
 
 
 async def _get_fcm_access_token() -> str:
@@ -142,12 +149,13 @@ async def _send_fcm_message(fcm_token: str, title: str, body: str, data: dict) -
                 content=json.dumps(payload),
             )
             if resp.status_code == 200:
+                logger.debug(f"[Jainpro] FCM push sent successfully to token {fcm_token[:10]}...")
                 return True
             else:
-                logger.warning(f"[Jainpro] FCM send failed: {resp.status_code} {resp.text}")
+                logger.error(f"[Jainpro] FCM send failed: {resp.status_code} {resp.text}")
                 return False
     except Exception as exc:
-        logger.warning(f"[Jainpro] FCM request error: {exc}")
+        logger.error(f"[Jainpro] FCM request error: {exc}")
         return False
 
 
@@ -185,7 +193,17 @@ async def send_push_to_role(
         {"fcm_token": 1},
     )
     users = await cursor.to_list(length=500)
-    for user in users:
-        token = user.get("fcm_token")
-        if token:
-            await _send_fcm_message(token, title, body, data or {})
+    
+    if not users:
+        logger.info(f"[Jainpro] No users with {role} role and FCM tokens found in tenant {tenant_id}")
+        return
+
+    logger.info(f"[Jainpro] Broadcasting push to {len(users)} users with role {role}")
+    
+    # Send all in parallel to avoid blocking the request
+    tasks = [
+        _send_fcm_message(user["fcm_token"], title, body, data or {})
+        for user in users if user.get("fcm_token")
+    ]
+    if tasks:
+        await asyncio.gather(*tasks)

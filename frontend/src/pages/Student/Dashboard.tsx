@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookOpen, AlertTriangle, CalendarRange, X, Check, UtensilsCrossed, KeyRound, ClipboardList, Bell, BellOff } from "lucide-react";
+import { BookOpen, AlertTriangle, CalendarRange, X, Check, UtensilsCrossed, KeyRound, ClipboardList, Bell, BellOff, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -85,13 +85,21 @@ export default function StudentDashboard() {
   useEffect(() => {
     fetchData();
     requestNotificationPermission();
+
+    // 1. WebSocket/FCM Listener (Instant Refresh)
     let unsub: (() => void) | undefined;
     onForegroundMessage((payload) => {
       toast(`🔔 ${payload.title}: ${payload.body}`, { duration: 6000 });
-      // Real-time refresh: fetch fresh data when a notification arrives
       fetchData();
     }).then(fn => { unsub = fn; });
-    return () => { if (unsub) unsub(); };
+
+    // 2. Polling Fallback (Every 15 seconds)
+    const pollId = setInterval(fetchData, 15000);
+
+    return () => { 
+      if (unsub) unsub(); 
+      clearInterval(pollId);
+    };
   }, []);
 
   const handleResponse = async (mealId: string, mealType: "breakfast" | "lunch" | "dinner", status: "Having" | "Skipping") => {
@@ -216,6 +224,18 @@ export default function StudentDashboard() {
                     title={notifEnabled ? "Notifications On" : "Notifications Off"}
                 >
                     {notifEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                        fetchData();
+                        toast.success("Updated", { id: "refresh-toast" }); // deduplicate toast
+                    }}
+                    className="text-slate-400 hover:text-white"
+                    title="Refresh Data"
+                >
+                    <RefreshCw className="w-4 h-4" />
                 </Button>
                 <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={() => setPasswordModalOpen(true)}>Password</Button>
                 <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-400" onClick={handleLogout}>Logout</Button>
