@@ -38,6 +38,7 @@ async def create_notice(
         role="Student",
         title="📢 New Announcement",
         body=f"{request.title}",
+        db=db,
         data={"type": "notice", "notice_id": new_notice.id, "tag": "new-notice"}
     )
     
@@ -103,6 +104,7 @@ async def update_notice(
         role="Student",
         title="📝 Announcement Updated",
         body=f"{request.title}",
+        db=db,
         data={"type": "notice", "notice_id": notice_id, "tag": f"update-notice-{notice_id}"}
     )
 
