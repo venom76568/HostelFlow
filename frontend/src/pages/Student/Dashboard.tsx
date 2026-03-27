@@ -93,8 +93,8 @@ export default function StudentDashboard() {
       fetchData();
     }).then(fn => { unsub = fn; });
 
-    // 2. Polling Fallback (Every 15 seconds)
-    const pollId = setInterval(fetchData, 15000);
+    // 2. Polling Fallback (Every 5 seconds for fast updates)
+    const pollId = setInterval(fetchData, 5000);
 
     return () => { 
       if (unsub) unsub(); 

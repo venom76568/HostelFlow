@@ -1,6 +1,7 @@
 import { getToken, onMessage } from "firebase/messaging";
 import { getMessagingInstance } from "./firebase";
 import { getAuthToken } from "./auth";
+import axios from "axios";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
@@ -30,52 +31,68 @@ export const requestNotificationPermission = async (): Promise<void> => {
   if (!("Notification" in window)) return;
 
   try {
+    console.log("[FCM] Requesting permission...");
     const permission = await Notification.requestPermission();
-    if (permission !== "granted") return;
-
-    // Register the FCM service worker (pass config via query params for background init)
-    let swRegistration: ServiceWorkerRegistration | undefined;
-    if ("serviceWorker" in navigator) {
-      const configParams = new URLSearchParams({
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-        appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
-      }).toString();
-
-      swRegistration = await navigator.serviceWorker.register(
-        `/firebase-messaging-sw.js?${configParams}`,
-        { scope: "/" }
-      );
+    if (permission !== "granted") {
+      console.warn("[FCM] Permission denied by user.");
+      return;
     }
 
-    const messaging = await getMessagingInstance();
-    if (!messaging) return;
+    console.log("[FCM] Checking for Service Worker...");
+    if (!("serviceWorker" in navigator)) {
+      console.error("[FCM] Service Worker not supported.");
+      return;
+    }
 
+    // Pass Firebase config to Service Worker via query params
+    const configParams = new URLSearchParams({
+      apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "",
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "",
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "",
+      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "",
+      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+      appId: import.meta.env.VITE_FIREBASE_APP_ID || "",
+    }).toString();
+
+    console.log("[FCM] Registering Service Worker...");
+    const swRegistration = await navigator.serviceWorker.register(
+      `/firebase-messaging-sw.js?${configParams}`,
+      { scope: "/" }
+    );
+    
+    await navigator.serviceWorker.ready;
+    console.log("[FCM] Service Worker Ready.");
+
+    const messaging = await getMessagingInstance();
+    if (!messaging) {
+      console.error("[FCM] Messaging instance null. Check Firebase config in .env");
+      return;
+    }
+
+    console.log("[FCM] Fetching Token with VAPID Key:", VAPID_KEY);
     const token = await getToken(messaging, {
       vapidKey: VAPID_KEY,
       serviceWorkerRegistration: swRegistration,
     });
 
-    if (!token) return;
+    if (token) {
+      console.log("[FCM] Token Generated:", token.substring(0, 15) + "...");
+      const authToken = getAuthToken();
+      if (!authToken) {
+        console.warn("[FCM] No auth token, skipping server save.");
+        return;
+      }
 
-    // Save token to backend
-    const authToken = getAuthToken();
-    if (!authToken) return;
-
-    await fetch(`${API_URL}/notifications/token`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${authToken}`,
-      },
-      body: JSON.stringify({ token }),
-    });
+      await axios.post(`${API_URL}/notifications/token`, 
+        { token }, 
+        { headers: { Authorization: `Bearer ${authToken}` } }
+      );
+      console.log("[FCM] Token saved successfully to server.");
+    } else {
+      console.warn("[FCM] No token received.");
+    }
   } catch (err) {
-    // Non-fatal: notifications are a nice-to-have, not a hard requirement
-    console.warn("[Jainpro] Could not register for push notifications:", err);
+    console.error("[FCM] Error in requestNotificationPermission:", err);
   }
 };
 

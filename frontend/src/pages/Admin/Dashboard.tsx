@@ -113,8 +113,8 @@ export default function AdminDashboard() {
       fetchData();
     }).then(fn => { unsub = fn; });
 
-    // Polling Fallback (Every 15 seconds)
-    const pollId = setInterval(fetchData, 15000);
+    // Polling Fallback (Every 5 seconds for fast updates)
+    const pollId = setInterval(fetchData, 5000);
 
     return () => { 
       if (unsub) unsub(); 

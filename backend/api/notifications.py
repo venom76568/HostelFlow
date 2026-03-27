@@ -149,7 +149,7 @@ async def _send_fcm_message(fcm_token: str, title: str, body: str, data: dict) -
                 content=json.dumps(payload),
             )
             if resp.status_code == 200:
-                logger.debug(f"[Jainpro] FCM push sent successfully to token {fcm_token[:10]}...")
+                logger.debug(f"[Jainpro] FCM push sent successfully to token.")
                 return True
             else:
                 logger.error(f"[Jainpro] FCM send failed: {resp.status_code} {resp.text}")
