@@ -8,6 +8,7 @@ from models.meal import MealDB, MealResponseDB
 from datetime import datetime, timezone
 import io
 import csv
+from api.notifications import send_push_to_role
 
 router = APIRouter(prefix="/api/meals", tags=["meals"])
 
@@ -46,6 +47,17 @@ async def create_meal(
     )
 
     await adb["meals"].insert_one(new_meal.model_dump())
+
+    # Notify all students: a new menu is ready for them to mark their preference
+    await send_push_to_role(
+        tenant_id=tenant_id,
+        role="Student",
+        title="New Mess Menu Posted",
+        body=f"The menu for {request.date} is now available. Tap to mark your meals.",
+        db=db,
+        data={"url": "/{slug}/dashboard", "tag": "meal-new"},
+    )
+
     return {"message": "Meal menu created successfully.", "meal_id": new_meal.id}
 
 @router.get("/")
@@ -88,6 +100,17 @@ async def update_meal(
     
     if result.matched_count == 0:
          raise HTTPException(status_code=404, detail="Meal not found.")
+
+    # Notify students that the menu has been updated
+    await send_push_to_role(
+        tenant_id=tenant_id,
+        role="Student",
+        title="Mess Menu Updated",
+        body="The warden has updated today's meal menu. Check it out!",
+        db=db,
+        data={"url": "/{slug}/dashboard", "tag": "meal-updated"},
+    )
+
     return {"message": "Meal menu updated successfully."}
 
 @router.delete("/{meal_id}", status_code=status.HTTP_200_OK)

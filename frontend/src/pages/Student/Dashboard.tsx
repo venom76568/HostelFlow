@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { /* useParams, */ useNavigate } from "react-router-dom";
-import { removeAuthToken, getAuthToken } from "@/lib/auth";
+import { getAuthToken, clearSession } from "@/lib/auth";
+import { requestNotificationPermission, isNotificationsEnabled, setNotificationsEnabled, onForegroundMessage } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookOpen, AlertTriangle, CalendarRange, X, Check, UtensilsCrossed, KeyRound, ClipboardList } from "lucide-react";
+import { BookOpen, AlertTriangle, CalendarRange, X, Check, UtensilsCrossed, KeyRound, ClipboardList, Bell, BellOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -23,6 +24,7 @@ type Leave = { id: string; start_date: string; end_date: string; reason: string;
 export default function StudentDashboard() {
   //const { slug } = useParams();
   const navigate = useNavigate();
+  const [notifEnabled, setNotifEnabled] = useState(isNotificationsEnabled());
   const [meals, setMeals] = useState<Meal[]>([]);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [myResponses, setMyResponses] = useState<Record<string, MealResponse>>({});
@@ -82,6 +84,12 @@ export default function StudentDashboard() {
 
   useEffect(() => {
     fetchData();
+    requestNotificationPermission();
+    let unsub: (() => void) | undefined;
+    onForegroundMessage((payload) => {
+      toast(`🔔 ${payload.title}: ${payload.body}`, { duration: 6000 });
+    }).then(fn => { unsub = fn; });
+    return () => { if (unsub) unsub(); };
   }, []);
 
   const handleResponse = async (mealId: string, mealType: "breakfast" | "lunch" | "dinner", status: "Having" | "Skipping") => {
@@ -175,7 +183,7 @@ export default function StudentDashboard() {
   };
 
   const handleLogout = () => {
-    removeAuthToken();
+    clearSession();
     navigate(`/login`);
   };
 
@@ -192,6 +200,21 @@ export default function StudentDashboard() {
                 <BookOpen className="text-blue-400 w-6 h-6" /> Welcome
             </h1>
             <div className="flex items-center gap-2 self-end sm:self-auto">
+                <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                        const next = !notifEnabled;
+                        setNotifEnabled(next);
+                        setNotificationsEnabled(next);
+                        if (next) requestNotificationPermission();
+                        toast(next ? "🔔 Notifications enabled" : "🔕 Notifications disabled");
+                    }}
+                    className={notifEnabled ? "text-blue-400 hover:text-blue-300" : "text-slate-500 hover:text-slate-400"}
+                    title={notifEnabled ? "Notifications On" : "Notifications Off"}
+                >
+                    {notifEnabled ? <Bell className="w-4 h-4" /> : <BellOff className="w-4 h-4" />}
+                </Button>
                 <Button variant="ghost" size="sm" className="text-slate-400 hover:text-white" onClick={() => setPasswordModalOpen(true)}>Password</Button>
                 <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-400" onClick={handleLogout}>Logout</Button>
             </div>

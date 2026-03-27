@@ -1,5 +1,5 @@
 import { Navigate, useParams, Outlet } from "react-router-dom";
-import { isAuthenticated, getUserRole } from "@/lib/auth";
+import { isAuthenticated, getUserRole, clearSession } from "@/lib/auth";
 
 interface ProtectedRouteProps {
   allowedRoles?: string[];
@@ -7,15 +7,17 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { slug } = useParams();
-  const isAuth = isAuthenticated();
+  const isAuth = isAuthenticated(); // also wipes session if JWT expired
   const role = getUserRole();
 
   if (!isAuth) {
-    return <Navigate to={`/${slug}/login`} replace />;
+    // Ensure all session data is clean before sending to login
+    clearSession();
+    return <Navigate to="/login" replace />;
   }
 
   if (allowedRoles && role && !allowedRoles.includes(role)) {
-    // If they are authenticated but lack permissions, redirect to their proper dashboard
+    // Authenticated but wrong role — redirect to their actual workspace
     if (role === "Admin") {
       return <Navigate to={`/${slug}/admin`} replace />;
     } else {

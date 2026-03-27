@@ -9,6 +9,7 @@ import axios from "axios";
 import toast from "react-hot-toast";
 import { ArrowLeft, Mail, ShieldCheck, KeyRound } from "lucide-react";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { setAuthToken, setCollegeSlug, setUserRole } from "@/lib/auth";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
 
@@ -62,7 +63,9 @@ export default function StudentLogin() {
         return;
       }
 
-      localStorage.setItem("token", access_token);
+      setAuthToken(access_token);
+      setUserRole(role);
+      setCollegeSlug(slug);
       navigate(`/${slug}/dashboard`);
     } catch (err: any) {
       toast.error(err.response?.data?.detail || "Invalid credentials");

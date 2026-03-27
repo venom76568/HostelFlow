@@ -19,6 +19,14 @@ class Settings(BaseSettings):
     MAIL_FROM: str = "jainprohostel@gmail.com"
     MAIL_FROM_NAME: str = "Jainpro"
 
+    # Firebase Cloud Messaging (Push Notifications)
+    # Get from Firebase Console → Project Settings → Service Accounts → Generate Key
+    FIREBASE_PROJECT_ID: Optional[str] = None
+    FIREBASE_PRIVATE_KEY_ID: Optional[str] = None
+    FIREBASE_PRIVATE_KEY: Optional[str] = None
+    FIREBASE_CLIENT_EMAIL: Optional[str] = None
+    FIREBASE_CLIENT_ID: Optional[str] = None
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 settings = Settings()

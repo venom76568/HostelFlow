@@ -15,3 +15,4 @@ class UserDB(BaseModel):
     contact: Optional[str] = None
     room_number: Optional[str] = None
     student_id: Optional[str] = None
+    fcm_token: Optional[str] = None  # Firebase Cloud Messaging device token

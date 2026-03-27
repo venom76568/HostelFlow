@@ -8,6 +8,7 @@ from api.deps import get_current_user_token_data, get_current_tenant
 from models.leave import LeaveDB
 from datetime import datetime, timezone
 from typing import Optional
+from api.notifications import send_push_to_role, send_push_to_user
 
 router = APIRouter(prefix="/api/leaves", tags=["leaves"])
 
@@ -39,6 +40,17 @@ async def request_leave(
     )
 
     await adb["leaves"].insert_one(new_leave.model_dump())
+
+    # Notify admins about the new leave request
+    await send_push_to_role(
+        tenant_id=tenant_id,
+        role="Admin",
+        title="New Leave Request",
+        body="A student has submitted an outing/leave request.",
+        db=db,
+        data={"url": f"/{tenant_id}/admin", "tag": "leave-new"},
+    )
+
     return {"message": "Leave requested successfully.", "leave_id": new_leave.id}
 
 @router.get("/")
@@ -168,5 +180,22 @@ async def update_leave_status(
 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Leave request not found.")
-        
+
+    # Notify the student about the decision
+    if request.status in ["Approved", "Rejected"]:
+        leave = await adb["leaves"].find_one({"id": leave_id, "tenant_id": tenant_id})
+        if leave:
+            student_id = leave.get("user_id")
+            tenant = await db["tenants"].find_one({"id": tenant_id})
+            slug = tenant.get("slug", "") if tenant else ""
+            if student_id:
+                verb = "approved" if request.status == "Approved" else "rejected"
+                await send_push_to_user(
+                    user_id=student_id,
+                    title=f"Leave {request.status}",
+                    body=f"Your leave request has been {verb} by the warden.",
+                    db=db,
+                    data={"url": f"/{slug}/dashboard", "tag": f"leave-{request.status.lower()}-{leave_id}"},
+                )
+
     return {"message": "Leave status updated."}

@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { removeAuthToken, getAuthToken } from "@/lib/auth";
+import { getAuthToken, clearSession } from "@/lib/auth";
+import { requestNotificationPermission, isNotificationsEnabled, setNotificationsEnabled, onForegroundMessage } from "@/lib/notifications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   LayoutDashboard, AlertTriangle, CalendarRange,
   UtensilsCrossed, Download, Search, X, ShieldCheck, KeyRound, Users,
-  CheckCircle2, XCircle, Clock, TrendingUp, FileDown, Filter, ClipboardCheck
+  CheckCircle2, XCircle, Clock, TrendingUp, FileDown, Filter, ClipboardCheck, Bell, BellOff
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
@@ -25,6 +26,9 @@ type Student = { id: string; student_id?: string; full_name: string; email: stri
 export default function AdminDashboard() {
   const { slug } = useParams();
   const navigate = useNavigate();
+
+  // Notification toggle
+  const [notifEnabled, setNotifEnabled] = useState(isNotificationsEnabled());
 
   // Data State
   const [meals, setMeals] = useState<Meal[]>([]);
@@ -97,7 +101,17 @@ export default function AdminDashboard() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { 
+    fetchData(); 
+    // Register for push notifications on mount (if user has opted in)
+    requestNotificationPermission();
+    // Listen for foreground messages and show toast
+    let unsub: (() => void) | undefined;
+    onForegroundMessage((payload) => {
+      toast(`🔔 ${payload.title}: ${payload.body}`, { duration: 6000 });
+    }).then(fn => { unsub = fn; });
+    return () => { if (unsub) unsub(); };
+  }, []);
 
   const handleComplaintUpdate = async (id: string, newStatus: string) => {
     if (isProcessing === `complaint_${id}`) return;
@@ -255,7 +269,7 @@ export default function AdminDashboard() {
     document.body.appendChild(link); link.click(); link.remove();
   };
 
-  const handleLogout = () => { removeAuthToken(); navigate(`/login`); };
+  const handleLogout = () => { clearSession(); navigate(`/login`); };
 
   // Metrics
   const openComplaints = complaints.filter(c => c.status !== "Resolved").length;
@@ -355,6 +369,20 @@ export default function AdminDashboard() {
           <div className="bg-green-500/10 border border-green-500/20 p-2 rounded flex items-center gap-2 text-xs text-green-400">
              <ShieldCheck className="w-4 h-4"/> Subscription: ACTIVE
           </div>
+          {/* Notification Toggle */}
+          <button
+            onClick={() => {
+              const next = !notifEnabled;
+              setNotifEnabled(next);
+              setNotificationsEnabled(next);
+              if (next) requestNotificationPermission();
+              toast(next ? "🔔 Notifications enabled" : "🔕 Notifications disabled");
+            }}
+            className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs transition-colors ${notifEnabled ? "text-blue-400 hover:text-blue-300" : "text-slate-500 hover:text-slate-400"}`}
+          >
+            {notifEnabled ? <Bell className="w-3.5 h-3.5" /> : <BellOff className="w-3.5 h-3.5" />}
+            {notifEnabled ? "Notifications On" : "Notifications Off"}
+          </button>
           <button onClick={handleLogout} className="w-full text-left px-2 py-1 text-xs text-red-400 hover:text-red-300">Logout</button>
         </div>
       </aside>

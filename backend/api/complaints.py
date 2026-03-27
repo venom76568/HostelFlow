@@ -5,6 +5,7 @@ from db.mongodb import get_database, get_activity_database
 from api.deps import get_current_user_token_data, get_current_tenant
 from models.complaint import ComplaintDB
 from datetime import datetime, timezone
+from api.notifications import send_push_to_role, send_push_to_user
 
 router = APIRouter(prefix="/api/complaints", tags=["complaints"])
 
@@ -37,6 +38,17 @@ async def create_complaint(
     )
 
     await adb["complaints"].insert_one(new_complaint.model_dump())
+
+    # Notify all admins in the tenant about the new complaint
+    await send_push_to_role(
+        tenant_id=tenant_id,
+        role="Admin",
+        title="New Complaint Received",
+        body="A student has submitted a new issue.",
+        db=db,
+        data={"url": f"/{tenant_id}/admin", "tag": "complaint-new"},
+    )
+
     return {"message": "Complaint submitted successfully.", "complaint_id": new_complaint.id}
 
 @router.get("/")
@@ -105,5 +117,22 @@ async def update_complaint_status(
 
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Complaint not found.")
-        
+
+    # If resolved, notify the student who filed it
+    if request.status == "Resolved":
+        complaint = await adb["complaints"].find_one({"id": complaint_id, "tenant_id": tenant_id})
+        if complaint:
+            student_id = complaint.get("student_id")
+            # Look up the college slug for the deep link
+            tenant = await db["tenants"].find_one({"id": tenant_id})
+            slug = tenant.get("slug", "") if tenant else ""
+            if student_id:
+                await send_push_to_user(
+                    user_id=student_id,
+                    title="Complaint Resolved ✓",
+                    body="Your complaint has been marked as resolved.",
+                    db=db,
+                    data={"url": f"/{slug}/dashboard?complaint={complaint_id}", "tag": f"complaint-resolved-{complaint_id}"},
+                )
+
     return {"message": "Complaint status updated."}

@@ -14,6 +14,7 @@ import AttendancePage from './pages/Admin/AttendancePage';
 import StudentDashboard from './pages/Student/Dashboard';
 import ParentAttendance from './pages/ParentAttendance';
 import ProtectedRoute from './components/ProtectedRoute';
+import AuthRedirector from './components/AuthRedirector';
 function App() {
   return (
     <div className="min-h-screen bg-slate-900 text-slate-50 font-sans" style={{ fontFamily: '"Inter", sans-serif' }}>
@@ -22,7 +23,9 @@ function App() {
       }} />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Home />} />
+          {/* Root: Traffic Controller — auto-routes to the right workspace or /login */}
+          <Route path="/" element={<AuthRedirector />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/super-panel/login" element={<SuperAdminLogin />} />
@@ -44,6 +47,9 @@ function App() {
 
           {/* Public parent route */}
           <Route path="/parent-attendance" element={<ParentAttendance />} />
+
+          {/* Catch-all: unknown routes go through the redirector */}
+          <Route path="*" element={<AuthRedirector />} />
         </Routes>
       </BrowserRouter>
     </div>
