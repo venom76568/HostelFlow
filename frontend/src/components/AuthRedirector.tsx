@@ -36,7 +36,7 @@ export default function AuthRedirector() {
     } else if (role === "SuperAdmin") {
       navigate("/super-panel", { replace: true });
     } else {
-      navigate("/login", { replace: true });
+      navigate("/", { replace: true });
     }
   }, [navigate]);
 
