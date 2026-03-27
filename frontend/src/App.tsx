@@ -23,8 +23,8 @@ function App() {
       }} />
       <BrowserRouter>
         <Routes>
-          {/* Root: Traffic Controller — auto-routes to the right workspace or /login */}
-          <Route path="/" element={<AuthRedirector />} />
+          {/* Root: Traffic Controller — auto-routes to dev workspace, or shows Home if no session */}
+          <Route path="/" element={<AuthRedirector><Home /></AuthRedirector>} />
           <Route path="/home" element={<Home />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
@@ -48,8 +48,8 @@ function App() {
           {/* Public parent route */}
           <Route path="/parent-attendance" element={<ParentAttendance />} />
 
-          {/* Catch-all: unknown routes go through the redirector */}
-          <Route path="*" element={<AuthRedirector />} />
+          {/* Catch-all: unknown routes go through the redirector to show Home */}
+          <Route path="*" element={<AuthRedirector><Home /></AuthRedirector>} />
         </Routes>
       </BrowserRouter>
     </div>

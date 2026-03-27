@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { isAuthenticated, getUserRole, getCollegeSlug } from "@/lib/auth";
 
@@ -11,12 +11,17 @@ import { isAuthenticated, getUserRole, getCollegeSlug } from "@/lib/auth";
  *   Student → /:college_slug/dashboard
  *   None    → /login
  */
-export default function AuthRedirector() {
+export default function AuthRedirector({ children }: { children?: React.ReactNode }) {
   const navigate = useNavigate();
+  const [isChecking, setIsChecking] = useState(true);
+  const [isAuth, setIsAuth] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated()) {
-      navigate("/login", { replace: true });
+    const authed = isAuthenticated();
+    setIsAuth(authed);
+    
+    if (!authed) {
+      setIsChecking(false);
       return;
     }
 
@@ -24,8 +29,7 @@ export default function AuthRedirector() {
     const slug = getCollegeSlug();
 
     if (!slug) {
-      // Session exists but college_slug is missing (very rare edge-case) — send to login
-      navigate("/login", { replace: true });
+      setIsChecking(false);
       return;
     }
 
@@ -36,10 +40,10 @@ export default function AuthRedirector() {
     } else if (role === "SuperAdmin") {
       navigate("/super-panel", { replace: true });
     } else {
-      navigate("/", { replace: true });
+      setIsChecking(false);
     }
   }, [navigate]);
 
-  // Render nothing — this component exists purely for side-effect navigation
-  return null;
+  if (isChecking && isAuth) return null;
+  return <>{children}</>;
 }
