@@ -127,13 +127,16 @@ async def _send_fcm_message(fcm_token: str, title: str, body: str, data: dict) -
                 "body": body,
             },
             "data": {k: str(v) for k, v in (data or {}).items()},
-            "android": {"priority": "normal"},
+            "android": {"priority": "high"},
             "apns": {
-                "headers": {"apns-priority": "5"},
+                "headers": {"apns-priority": "10"},
                 "payload": {"aps": {"content-available": 1}},
             },
             "webpush": {
-                "headers": {"Urgency": "normal"},
+                "headers": {"Urgency": "high"},
+                "fcm_options": {
+                    "link": f"{settings.FRONTEND_URL}/"
+                }
             },
         }
     }

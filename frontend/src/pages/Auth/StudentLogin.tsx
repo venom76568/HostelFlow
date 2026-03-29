@@ -117,7 +117,7 @@ export default function StudentLogin() {
     }
     setIsForgotLoading(true);
     try {
-      await axios.post(`${API_URL}/auth/reset-password`, { email: forgotEmail, new_password: newPassword });
+      await axios.post(`${API_URL}/auth/reset-password`, { email: forgotEmail, otp, new_password: newPassword });
       toast.success("Password reset successfully! Please log in.");
       setShowForgot(false);
       setForgotStep("email");
