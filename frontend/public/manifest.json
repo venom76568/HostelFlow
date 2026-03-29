@@ -1,7 +1,7 @@
 {
-  "name": "Jainpro",
-  "short_name": "Jainpro",
-  "description": "Smart hostel management — complaints, meals, leaves & attendance.",
+  "name": "JainPro",
+  "short_name": "JainPro",
+  "description": "Secure Hostel Management & Student Engagement Platform",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

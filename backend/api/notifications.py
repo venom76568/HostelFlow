@@ -134,9 +134,8 @@ async def _send_fcm_message(fcm_token: str, title: str, body: str, data: dict) -
             },
             "webpush": {
                 "headers": {"Urgency": "high"},
-                "fcm_options": {
-                    "link": f"{settings.FRONTEND_URL}/"
-                }
+                # We handle the click-to-open logic manually in the Service Worker
+                # to avoid generic browser "Tap to copy URL" prompts.
             },
         }
     }
@@ -152,13 +151,13 @@ async def _send_fcm_message(fcm_token: str, title: str, body: str, data: dict) -
                 content=json.dumps(payload),
             )
             if resp.status_code == 200:
-                logger.debug(f"[Jainpro] FCM push sent successfully to token.")
+                logger.debug(f"[JainPro] FCM push sent successfully to token.")
                 return True
             else:
-                logger.error(f"[Jainpro] FCM send failed: {resp.status_code} {resp.text}")
+                logger.error(f"[JainPro] FCM send failed: {resp.status_code} {resp.text}")
                 return False
     except Exception as exc:
-        logger.error(f"[Jainpro] FCM request error: {exc}")
+        logger.error(f"[JainPro] FCM request error: {exc}")
         return False
 
 

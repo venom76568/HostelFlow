@@ -118,7 +118,7 @@ export const onForegroundMessage = async (
 
   const unsubscribe = onMessage(messaging, (payload) => {
     callback({
-      title: payload.notification?.title || "Jainpro",
+      title: payload.notification?.title || "JainPro",
       body: payload.notification?.body || "You have a new update.",
       data: (payload.data as Record<string, string>) || {},
     });

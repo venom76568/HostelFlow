@@ -25,7 +25,7 @@ messaging.onBackgroundMessage((payload) => {
   const { title, body, data } = payload.notification || {};
 
   // Privacy-safe: only show a brief summary on the lock screen
-  const notificationTitle = title || "Jainpro";
+  const notificationTitle = title || "JainPro";
   const notificationOptions = {
     body: body || "You have a new update.",
     icon: "/favicon.ico",
@@ -33,7 +33,7 @@ messaging.onBackgroundMessage((payload) => {
     data: data || {},
     // Vibrate pattern: short pulses (battery friendly)
     vibrate: [100, 50, 100],
-    tag: data?.tag || "Jainpro-notification",
+    tag: data?.tag || "JainPro-notification",
     renotify: true,
   };
 

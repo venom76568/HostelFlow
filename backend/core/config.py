@@ -2,7 +2,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
-    PROJECT_NAME: str = "Jainpro"
+    PROJECT_NAME: str = "JainPro"
     MONGODB_URL: str
     SECONDARY_MONGODB_URL: Optional[str] = None
     DATABASE_NAME: str
@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     # Get a free key at https://resend.com
     RESEND_API_KEY: Optional[str] = None
     MAIL_FROM: str = "jainprohostel@gmail.com"
-    MAIL_FROM_NAME: str = "Jainpro"
+    MAIL_FROM_NAME: str = "JainPro"
 
     # Firebase Cloud Messaging (Push Notifications)
     # Get from Firebase Console → Project Settings → Service Accounts → Generate Key

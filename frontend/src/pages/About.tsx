@@ -63,9 +63,12 @@ export default function About() {
             <h2 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6">
                 Redefining <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-500">Hostel Management</span>
             </h2>
-            <p className="text-xl text-slate-400 max-w-3xl mx-auto leading-relaxed">
-                Jainpro was built with a single mission: to eliminate the administrative friction in educational institutions. We empower wardens with powerful tools and provide students with a seamless campus living experience.
-            </p>
+                <h2 className="text-3xl font-bold text-white mb-6">About JainPro</h2>
+                <p className="text-slate-400 text-lg leading-relaxed mb-8">
+                  JainPro is a cutting-edge hostel management platform designed specifically for modern educational institutions. 
+                  Our mission is to simplify the daily operations of hostel management while providing students with a seamless, 
+                  digital-first residential experience.
+                </p>
         </motion.div>
       </section>
 

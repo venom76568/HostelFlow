@@ -23,7 +23,7 @@ def _send_sync(to_email: str, otp: str) -> None:
                   padding:32px;border:1px solid rgba(255,255,255,0.1);">
         <h2 style="color:#60a5fa;margin-bottom:4px;">&#128274; Password Reset</h2>
         <p style="color:#94a3b8;margin-bottom:24px;">
-          You requested a password reset for your Jainpro account.
+          You requested a password reset for your JainPro account.
         </p>
         <div style="background:#0f172a;border-radius:12px;padding:24px;
                     text-align:center;margin-bottom:24px;">
@@ -39,7 +39,7 @@ def _send_sync(to_email: str, otp: str) -> None:
         </p>
         <hr style="border:none;border-top:1px solid rgba(255,255,255,0.1);margin:24px 0;"/>
         <p style="color:#475569;font-size:11px;text-align:center;">
-          &copy; Jainpro &mdash; Secure Campus Management
+          &copy; JainPro &mdash; Secure Campus Management
         </p>
       </div>
     </body>

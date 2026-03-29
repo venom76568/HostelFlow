@@ -103,9 +103,10 @@ export default function Contact() {
                 >
                     <div className="text-center md:text-left mb-8">
                         <MessageSquare className="w-12 h-12 text-blue-500 mb-4 inline-block md:block" />
-                        <h2 className="text-4xl font-extrabold tracking-tight mb-2">Get in touch</h2>
-                        <p className="text-slate-400">Have questions about setting up HostelFlow for your institution? Send us a message.</p>
-                    </div>
+                        <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">Get in Touch</h1>
+          <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+            Have questions about JainPro? Our team is here to help you optimize your hostel management experience.
+          </p>          </div>
 
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
