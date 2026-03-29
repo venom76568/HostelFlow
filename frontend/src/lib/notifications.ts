@@ -8,6 +8,8 @@ const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || "";
 
 // localStorage key for the user's notification preference
 const NOTIF_PREF_KEY = "notifications_enabled";
+// Session storage to avoid redundant token updates in a single page load
+const TOKEN_SAVED_KEY = "fcm_token_saved_this_session";
 
 /** Check if user has opted in to notifications */
 export const isNotificationsEnabled = (): boolean => {
@@ -83,10 +85,16 @@ export const requestNotificationPermission = async (): Promise<void> => {
         return;
       }
 
+      if (sessionStorage.getItem(TOKEN_SAVED_KEY) === token) {
+        console.log("[FCM] Token already synced in this session.");
+        return;
+      }
+
       await axios.post(`${API_URL}/notifications/token`, 
         { token }, 
         { headers: { Authorization: `Bearer ${authToken}` } }
       );
+      sessionStorage.setItem(TOKEN_SAVED_KEY, token);
       console.log("[FCM] Token saved successfully to server.");
     } else {
       console.warn("[FCM] No token received.");
