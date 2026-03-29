@@ -22,18 +22,17 @@ const messaging = firebase.messaging();
 
 // Handle background push messages (app is closed or in background)
 messaging.onBackgroundMessage((payload) => {
-  const { title, body, data } = payload.notification || {};
+  // 🚨 Using payload.data because we switched to data-only messages
+  const { title, body } = payload.data || {};
 
-  // Privacy-safe: only show a brief summary on the lock screen
   const notificationTitle = title || "JainPro";
   const notificationOptions = {
     body: body || "You have a new update.",
     icon: "/favicon.ico",
     badge: "/favicon.ico",
-    data: data || {},
-    // Vibrate pattern: short pulses (battery friendly)
+    data: payload.data || {},
     vibrate: [100, 50, 100],
-    tag: data?.tag || "JainPro-notification",
+    tag: payload.data?.tag || "JainPro-notification",
     renotify: true,
   };
 

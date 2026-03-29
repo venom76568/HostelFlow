@@ -34,6 +34,7 @@ export default function StudentDashboard() {
   
   // Modals state
   const [isAttendanceModalOpen, setAttendanceModalOpen] = useState(false);
+  const [isLeaveHistoryModalOpen, setLeaveHistoryModalOpen] = useState(false);
   const [isComplaintModalOpen, setComplaintModalOpen] = useState(false);
   const [isLeaveModalOpen, setLeaveModalOpen] = useState(false);
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
@@ -375,12 +376,19 @@ export default function StudentDashboard() {
 
             {/* Leaves Tracker */}
             <div className="bg-[#1e293b]/50 backdrop-blur-xl border border-white/10 p-4 rounded-xl shadow-xl">
-                <h3 className="text-sm font-bold flex items-center gap-2 text-green-400 mb-4 tracking-widest uppercase border-b border-white/10 pb-2">
-                    <CalendarRange className="w-4 h-4"/> My Leaves
-                </h3>
+                <div className="flex justify-between items-center mb-4 border-b border-white/10 pb-2">
+                    <h3 className="text-sm font-bold flex items-center gap-2 text-green-400 tracking-widest uppercase">
+                        <CalendarRange className="w-4 h-4"/> My Leaves
+                    </h3>
+                    {myLeaves.length > 3 && (
+                        <button onClick={() => setLeaveHistoryModalOpen(true)} className="text-[10px] font-bold text-blue-400 hover:text-blue-300 transition-colors uppercase tracking-wider bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/30">
+                            History
+                        </button>
+                    )}
+                </div>
                 <div className="space-y-3">
                     {myLeaves.length === 0 && <div className="text-xs text-slate-500 italic">No leaves requested.</div>}
-                    {myLeaves.map(l => (
+                    {myLeaves.slice(0, 3).map(l => (
                         <div key={l.id} onClick={() => setSelectedLeave(l)} className="bg-black/30 p-3 rounded-lg border border-white/5 flex justify-between items-start cursor-pointer hover:border-green-500/50 hover:bg-white/5 transition-all">
                             <div>
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
@@ -395,6 +403,11 @@ export default function StudentDashboard() {
                             }`}>{l.status}</span>
                         </div>
                     ))}
+                    {myLeaves.length > 3 && (
+                         <Button variant="ghost" className="w-full text-xs text-slate-400 h-8 hover:text-white" onClick={() => setLeaveHistoryModalOpen(true)}>
+                             Show Full History ({myLeaves.length})
+                         </Button>
+                    )}
                 </div>
             </div>
         </div>
@@ -410,6 +423,31 @@ export default function StudentDashboard() {
                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
                    className="w-full max-w-md bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl overflow-hidden max-h-[90vh] overflow-y-auto"
                 >
+                    {isLeaveHistoryModalOpen && (
+                        <div className="p-6">
+                            <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">
+                                <h3 className="text-xl font-bold flex items-center gap-2 text-green-400"><CalendarRange className="w-5 h-5"/> Leave History</h3>
+                                <button onClick={() => setLeaveHistoryModalOpen(false)} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+                            </div>
+                            <div className="space-y-3">
+                                {myLeaves.length === 0 && <div className="text-center py-10 text-slate-500 italic">No leave history found.</div>}
+                                {myLeaves.map((l, idx) => (
+                                    <div key={idx} className="bg-black/20 p-4 rounded-lg border border-white/5 space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-bold text-slate-400 tracking-wider uppercase">{l.start_date} — {l.end_date}</span>
+                                            <span className={`text-[10px] font-bold px-2 py-1 rounded border ${
+                                                l.status === 'Pending' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' :
+                                                l.status === 'Rejected' ? 'bg-red-500/10 text-red-500 border-red-500/30' :
+                                                'bg-green-500/10 text-green-400 border-green-500/30'
+                                            }`}>{l.status}</span>
+                                        </div>
+                                        <div className="text-sm text-slate-200 font-medium">{l.reason}</div>
+                                        <div className="text-[10px] text-slate-500 italic">Applied on {new Date(l.created_at).toLocaleDateString()}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     {isAttendanceModalOpen && (
                         <div className="p-6">
                             <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-4">

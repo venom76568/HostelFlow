@@ -67,13 +67,54 @@ async def list_meals(
     db = Depends(get_database),
     adb = Depends(get_activity_database)
 ):
-    cursor = adb["meals"].find({"tenant_id": tenant_id}).sort("date", -1).limit(10)
+    from zoneinfo import ZoneInfo
+    ist = ZoneInfo("Asia/Kolkata")
+    current_date = datetime.now(ist).date().strftime("%Y-%m-%d")
+
+    # Only show UPCOMING meals (where voting is still open)
+    # Voting closes at 23:59 the day before. 
+    # So if Today is 2026-03-30, we only show meals for 2026-03-31 and onwards.
+    query = {"tenant_id": tenant_id, "date": {"$gt": current_date}}
+    
+    # If Admin, show everything (past and future) for management
+    if token_data.get("role") == "Admin":
+         query.pop("date")
+
+    cursor = adb["meals"].find(query).sort("date", -1).limit(10)
     meals = await cursor.to_list(length=10)
 
     for meal in meals:
         meal["_id"] = str(meal["_id"])
 
     return meals
+
+@router.delete("/admin/cleanup", status_code=status.HTTP_200_OK)
+async def cleanup_expired_meals(
+    days_to_keep: int = 7,
+    token_data: dict = Depends(get_current_user_token_data),
+    tenant_id: str = Depends(get_current_tenant),
+    adb = Depends(get_activity_database)
+):
+    """Admin tool to delete old meal records and responses to save DB space."""
+    if token_data.get("role") != "Admin":
+         raise HTTPException(status_code=403, detail="Only Admins can run cleanup.")
+    
+    from datetime import timedelta
+    cutoff = (datetime.now() - timedelta(days=days_to_keep)).strftime("%Y-%m-%d")
+    
+    # Find expired meals for this tenant
+    expired_meals = await adb["meals"].find({"tenant_id": tenant_id, "date": {"$lt": cutoff}}).to_list(length=1000)
+    meal_ids = [m["id"] for m in expired_meals]
+
+    if not meal_ids:
+        return {"message": "No expired meals found to clean up."}
+
+    # Delete responses first (cascade)
+    await adb["meal_responses"].delete_many({"meal_id": {"$in": meal_ids}, "tenant_id": tenant_id})
+    # Delete meals
+    result = await adb["meals"].delete_many({"id": {"$in": meal_ids}, "tenant_id": tenant_id})
+
+    return {"message": f"Successfully cleaned up {result.deleted_count} expired meals and their responses."}
 
 @router.put("/{meal_id}", status_code=status.HTTP_200_OK)
 async def update_meal(

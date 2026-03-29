@@ -235,6 +235,25 @@ export default function AdminDashboard() {
     } catch { toast.error("Failed to delete menu"); }
   };
 
+  const handleCleanup = async () => {
+    if (!confirm("Are you sure you want to delete all meal records and voting history older than 7 days? This action cannot be undone.")) return;
+    if (isProcessing === "cleanup") return;
+
+    setIsProcessing("cleanup");
+    try {
+      const res = await axios.delete(`${API_URL}/meals/admin/cleanup`, { 
+        params: { days_to_keep: 7 },
+        headers: { Authorization: `Bearer ${getAuthToken()}` } 
+      });
+      toast.success(res.data.message || "Cleanup successful");
+      fetchData();
+    } catch { 
+      toast.error("Cleanup failed"); 
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isProcessing === "passwordChange") return;
@@ -740,7 +759,16 @@ export default function AdminDashboard() {
                         </form>
                         
                         <div className="space-y-4">
-                            <h3 className="text-sm font-bold text-slate-300">Scheduled Meals</h3>
+                            <div className="flex justify-between items-center bg-black/10 p-2 rounded-lg border border-white/5">
+                                <h3 className="text-sm font-bold text-slate-300">Scheduled Meals</h3>
+                                <button 
+                                    onClick={handleCleanup} 
+                                    disabled={isProcessing === "cleanup"}
+                                    className="text-[10px] font-bold text-red-400 hover:text-red-300 transition-colors uppercase tracking-widest border border-red-500/30 px-2 py-1 rounded bg-red-500/5 hover:bg-red-500/10 flex items-center gap-1.5"
+                                >
+                                    <XCircle className="w-3 h-3" /> Cleanup Old Data
+                                </button>
+                            </div>
                             {meals.map(m => (
                                 <div key={m.id} className="p-3 bg-black/30 rounded-lg border border-white/5 space-y-2 relative group">
                                     {editingMealId === m.id ? (

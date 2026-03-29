@@ -117,9 +117,13 @@ export const onForegroundMessage = async (
   if (!messaging) return undefined;
 
   const unsubscribe = onMessage(messaging, (payload) => {
+    // Support both notification and data-only payloads
+    const title = payload.notification?.title || payload.data?.title || "JainPro";
+    const body = payload.notification?.body || payload.data?.body || "You have a new update.";
+    
     callback({
-      title: payload.notification?.title || "JainPro",
-      body: payload.notification?.body || "You have a new update.",
+      title,
+      body,
       data: (payload.data as Record<string, string>) || {},
     });
   });

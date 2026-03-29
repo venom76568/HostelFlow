@@ -117,16 +117,19 @@ async def _send_fcm_message(fcm_token: str, title: str, body: str, data: dict) -
     project_id = settings.FIREBASE_PROJECT_ID
     url = f"https://fcm.googleapis.com/v1/projects/{project_id}/messages:send"
 
-    # Privacy: notification body shown in lock screen should be minimal.
-    # Detailed info is passed in `data` for the app to read when opened.
+    # 🚨 DATA-ONLY PAYLOAD 🚨
+    # By removing the "notification" key and putting title/body in "data",
+    # we force the Service Worker to handle the display. This solves:
+    # 1. Background delivery (SW is always triggered)
+    # 2. Chrome's "Tap to copy URL" prompt (manual showNotification is cleaner)
     payload = {
         "message": {
             "token": fcm_token,
-            "notification": {
-                "title": title,
-                "body": body,
+            "data": {
+                "title": str(title),
+                "body": str(body),
+                **{k: str(v) for k, v in (data or {}).items()}
             },
-            "data": {k: str(v) for k, v in (data or {}).items()},
             "android": {"priority": "high"},
             "apns": {
                 "headers": {"apns-priority": "10"},
@@ -134,8 +137,6 @@ async def _send_fcm_message(fcm_token: str, title: str, body: str, data: dict) -
             },
             "webpush": {
                 "headers": {"Urgency": "high"},
-                # We handle the click-to-open logic manually in the Service Worker
-                # to avoid generic browser "Tap to copy URL" prompts.
             },
         }
     }
