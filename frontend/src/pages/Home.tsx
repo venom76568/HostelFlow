@@ -56,7 +56,7 @@ export default function Home() {
       <nav className="relative z-10 border-b border-white/5 bg-[#111827]/50 backdrop-blur-xl">
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2 cursor-pointer" onClick={() => navigate('/')}>
-                <Building2 className="text-blue-500"/> Jainpro
+                <Building2 className="text-blue-500"/> JainPro
             </h1>
 
             {/* Desktop Nav */}
