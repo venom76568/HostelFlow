@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { motion, AnimatePresence } from "framer-motion";
-import { Building2, ShieldAlert, Power, KeyRound, X } from "lucide-react";
+import { Building2, ShieldAlert, Power, KeyRound, X, Clock, Calendar } from "lucide-react";
 import toast from "react-hot-toast";
 
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000/api";
@@ -15,11 +15,17 @@ type Tenant = {
   is_approved: boolean;
   is_active: boolean;
   admin_email: string;
+  subscription_expires_at: string | null;
 };
 
 export default function SuperAdminDashboard() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedPending, setSelectedPending] = useState<Tenant | null>(null);
+  const [showTimerModal, setShowTimerModal] = useState<Tenant | null>(null);
+  const [days, setDays] = useState(0);
+  const [months, setMonths] = useState(1);
+  const [years, setYears] = useState(0);
+  const [isTimerLoading, setIsTimerLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -53,6 +59,19 @@ export default function SuperAdminDashboard() {
         toast.success(`College ${currentStatus ? 'Deactivated' : 'Activated'}`);
         fetchTenants();
     } catch { toast.error("Failed to toggle status"); }
+  };
+
+  const setSubscriptionExpiry = async () => {
+    if (!showTimerModal) return;
+    setIsTimerLoading(true);
+    try {
+        const token = localStorage.getItem("super_token");
+        await axios.post(`${API_URL}/partners/${showTimerModal.id}/set-expiry`, { days, months, years }, { headers: { Authorization: `Bearer ${token}` } });
+        toast.success("Subscription timer set successfully!");
+        setShowTimerModal(null);
+        fetchTenants();
+    } catch { toast.error("Failed to set timer"); }
+    finally { setIsTimerLoading(false); }
   };
 
   const handleLogout = () => { localStorage.removeItem("super_token"); navigate("/super-panel/login"); };
@@ -114,6 +133,7 @@ export default function SuperAdminDashboard() {
                             <th className="px-6 py-4">Slug</th>
                             <th className="px-6 py-4">Status</th>
                             <th className="px-6 py-4 text-center">Active (Kill Switch)</th>
+                            <th className="px-6 py-4">Subscription Timer</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -159,6 +179,29 @@ export default function SuperAdminDashboard() {
                                             <span className="text-red-500 border border-red-500 bg-red-950/80 px-3 py-1 font-bold tracking-widest text-xs rounded rotate-[-5deg] shadow-[0_0_15px_rgba(239,68,68,0.5)] backdrop-blur-sm">SUBSCRIPTION EXPIRED</span>
                                         </div>
                                     )}
+                                </td>
+                                <td className="px-6 py-4">
+                                     {t.is_approved ? (
+                                         <div className="flex items-center gap-3">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); setShowTimerModal(t); }}
+                                                className="p-2 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 transition-colors border border-blue-500/20"
+                                                title="Set Subscription Timer"
+                                            >
+                                                <Clock className="w-4 h-4" />
+                                            </button>
+                                            {t.subscription_expires_at && (
+                                                <div className="flex flex-col">
+                                                    <span className="text-[10px] text-slate-500 uppercase tracking-tighter">Expires</span>
+                                                    <span className="text-xs font-mono text-slate-300">
+                                                        {new Date(t.subscription_expires_at).toLocaleDateString()}
+                                                    </span>
+                                                </div>
+                                            )}
+                                         </div>
+                                     ) : (
+                                         <span className="text-xs text-slate-600">Pending Approval</span>
+                                     )}
                                 </td>
                             </motion.tr>
                         ))}
@@ -209,6 +252,80 @@ export default function SuperAdminDashboard() {
                     >
                         <KeyRound className="w-5 h-5"/> Generate College Code & Approve
                     </motion.button>
+                </motion.div>
+            </div>
+        )}
+      </AnimatePresence>
+
+      {/* Timer Modal */}
+      <AnimatePresence>
+        {showTimerModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <motion.div 
+                    initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                    className="w-full max-w-md bg-[#1e293b] border border-blue-500/20 rounded-2xl p-6 shadow-2xl relative"
+                >
+                    <button onClick={() => setShowTimerModal(null)} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors"><X className="w-5 h-5"/></button>
+                    
+                    <div className="flex items-center gap-3 mb-6">
+                         <div className="p-3 rounded-xl bg-blue-500/20 text-blue-400">
+                            <Clock className="w-6 h-6" />
+                         </div>
+                         <div>
+                             <h2 className="text-xl font-bold text-white">Subscription Timer</h2>
+                             <p className="text-xs text-slate-400">Setting duration for <span className="text-blue-400 font-semibold">{showTimerModal.name}</span></p>
+                         </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1">Days</label>
+                                <input 
+                                    type="number" 
+                                    value={days} 
+                                    onChange={(e) => setDays(parseInt(e.target.value) || 0)}
+                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 transition-all font-mono"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1">Months</label>
+                                <input 
+                                    type="number" 
+                                    value={months} 
+                                    onChange={(e) => setMonths(parseInt(e.target.value) || 0)}
+                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 transition-all font-mono"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-[10px] uppercase font-bold text-slate-500 tracking-widest ml-1">Years</label>
+                                <input 
+                                    type="number" 
+                                    value={years} 
+                                    onChange={(e) => setYears(parseInt(e.target.value) || 0)}
+                                    className="w-full bg-black/40 border border-white/5 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-500/50 transition-all font-mono"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="p-4 bg-blue-500/5 border border-blue-500/10 rounded-xl flex items-start gap-3">
+                            <Calendar className="w-5 h-5 text-blue-400 shrink-0 mt-0.5" />
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                                After this duration, the subscription will <span className="text-red-400 font-semibold">auto-terminate</span> and the kill switch will engage. You can manually re-enable it later.
+                            </p>
+                        </div>
+
+                        <motion.button 
+                            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                            onClick={setSubscriptionExpiry}
+                            disabled={isTimerLoading}
+                            className="w-full py-4 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold tracking-wider uppercase shadow-xl flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {isTimerLoading ? "Syncing..." : "Activate Timer"}
+                        </motion.button>
+                    </div>
                 </motion.div>
             </div>
         )}

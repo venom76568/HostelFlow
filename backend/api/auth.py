@@ -38,6 +38,14 @@ async def register(request: UserRegisterRequest, db = Depends(get_database)):
     tenant = await db["tenants"].find_one({"college_code": request.college_code, "is_approved": True, "is_active": True})
     if not tenant:
         raise HTTPException(status_code=400, detail="Invalid or inactive college code.")
+
+    # Check for expiration
+    expires_at = tenant.get("subscription_expires_at")
+    if expires_at:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="College subscription has expired.")
     
     # Check if email is already registered
     existing_user = await db["users"].find_one({"email": request.email})
@@ -96,6 +104,14 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db = Depends(g
         
     if not tenant.get("is_active"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="College subscription is inactive.")
+
+    # Check for expiration
+    expires_at = tenant.get("subscription_expires_at")
+    if expires_at:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="College subscription has expired.")
 
     access_token = create_access_token(
         data={"uid": user["id"], "role": user["role"], "tenant_id": user["tenant_id"]}

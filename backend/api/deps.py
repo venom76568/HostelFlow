@@ -1,4 +1,5 @@
 from fastapi import Depends, HTTPException, status
+from typing import Optional
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from core.config import settings
@@ -30,7 +31,7 @@ async def get_current_user_token_data(token: str = Depends(oauth2_scheme)):
 async def get_current_tenant(
     token_data: dict = Depends(get_current_user_token_data),
     db = Depends(get_database)
-) -> str:
+) -> Optional[str]:
     if token_data.get("role") == "SuperAdmin":
         return None  # Super admin bypasses tenant checks
 
@@ -44,5 +45,14 @@ async def get_current_tenant(
 
     if not tenant_doc.get("is_active"):
         raise HTTPException(status_code=403, detail="College subscription inactive.")
+
+    # Check for expiration
+    expires_at = tenant_doc.get("subscription_expires_at")
+    if expires_at:
+        from datetime import datetime, timezone
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at < datetime.now(timezone.utc):
+             raise HTTPException(status_code=403, detail="College subscription has expired.")
 
     return tenant_id

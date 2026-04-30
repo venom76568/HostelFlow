@@ -4,6 +4,7 @@ from pydantic import BaseModel
 import random
 import string
 from core.config import settings
+from datetime import datetime, timezone, timedelta
 from db.mongodb import get_database
 from models.tenant import TenantDB
 from models.user import UserDB
@@ -16,6 +17,11 @@ class ApplyPartnerRequest(BaseModel):
     name: str
     admin_email: str
     admin_password: str
+
+class SetSubscriptionExpiryRequest(BaseModel):
+    days: int = 0
+    months: int = 0
+    years: int = 0
 
 def generate_college_code(length=6):
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=length))
@@ -65,9 +71,28 @@ async def list_partners(token_data: dict = Depends(get_current_user_token_data),
     if token_data.get("role") != "SuperAdmin":
         raise HTTPException(status_code=403, detail="SuperAdmin only endpoint.")
     
+    now = datetime.now(timezone.utc)
     cursor = db["tenants"].find({})
     tenants = await cursor.to_list(length=100)
-    return tenants
+    
+    updated_tenants = []
+    for tenant in tenants:
+        # Check for expiration and auto-deactivate
+        expires_at = tenant.get("subscription_expires_at")
+        if expires_at:
+            # Ensure expires_at is timezone-aware for comparison
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+            if tenant.get("is_active") and expires_at < now:
+                await db["tenants"].update_one(
+                    {"id": tenant["id"]},
+                    {"$set": {"is_active": False}}
+                )
+                tenant["is_active"] = False
+        updated_tenants.append(tenant)
+        
+    return updated_tenants
 
 @router.post("/{tenant_id}/approve")
 async def approve_partner(tenant_id: str, token_data: dict = Depends(get_current_user_token_data), db = Depends(get_database)):
@@ -97,8 +122,34 @@ async def toggle_active(tenant_id: str, token_data: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Tenant not found.")
         
     new_status = not tenant.get("is_active", False)
+    # If manually turning back on, we might want to clear expiration or just let it be. 
+    # User said "later we can again turn on the switch if required". 
+    # If we turn it on and it's already past expiry, it will immediate kill again next list?
+    # Better to clear expiration if turning ON or just update it.
+    # Let's just toggle. If they want to extend, they use the timer.
     await db["tenants"].update_one(
         {"id": tenant_id},
         {"$set": {"is_active": new_status}}
     )
     return {"message": f"College subscription status changed to {new_status}.", "is_active": new_status}
+
+@router.post("/{tenant_id}/set-expiry")
+async def set_expiry(tenant_id: str, request: SetSubscriptionExpiryRequest, token_data: dict = Depends(get_current_user_token_data), db = Depends(get_database)):
+    if token_data.get("role") != "SuperAdmin":
+        raise HTTPException(status_code=403, detail="SuperAdmin only endpoint.")
+        
+    tenant = await db["tenants"].find_one({"id": tenant_id})
+    if not tenant:
+        raise HTTPException(status_code=404, detail="Tenant not found.")
+        
+    now = datetime.now(timezone.utc)
+    # Calculate expiry
+    # Simple addition of months/years by 30/365 days for simplicity
+    delta = timedelta(days=request.days + request.months * 30 + request.years * 365)
+    expiry_date = now + delta
+    
+    await db["tenants"].update_one(
+        {"id": tenant_id},
+        {"$set": {"subscription_expires_at": expiry_date, "is_active": True}}
+    )
+    return {"message": "Subscription timer set.", "expires_at": expiry_date}

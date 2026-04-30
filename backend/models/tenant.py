@@ -14,4 +14,5 @@ class TenantDB(BaseModel):
     is_approved: bool = False
     is_active: bool = False
     admin_email: str
+    subscription_expires_at: Optional[datetime] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
